@@ -290,3 +290,208 @@ class Keyboards():
         'reviewTime':{"$gte":self.cond_date,"$type":"date"}
     }
 		return key
+
+
+# Home & Kitchen
+class Home_Kitchen():
+        def __init__(self):
+                self.main_cat = 'Home & Kitchen'
+                self.category1 = 'Home & Kitchen'
+                self.category2 = 'Home & Kitchen'
+        # 		self.db_col='new_Product2'
+                # self.cond_date = '2015-01-01'
+                self.cond_date = datetime(1900, 1, 1, 0, 0, 0)
+                
+        def getAttr(self):
+                return self.main_cat,self.category1,self.category2,self.cond_date
+                
+        def getProductKey(self):
+                key = {
+        "description": {'$ne': 'NaN', "$exists": True, "$type": "array"},
+        #         "main_cat": {'$eq': main_cat, "$type": "string", "$exists": True},
+        "category1": {'$eq': self.category1, "$type": "string", "$exists": True}
+        #         "category2": {'$eq': category2, "$type": "string", "$exists": True},
+        }       
+                return key
+
+        def getReviewKey(self):
+                # 增設條件if asin in [as1,as2,as3]
+                # 增設條件 找出前三名
+                # 預設查看前5個產品
+                # Query review
+                key = {
+                #         "main_cat": {'$eq': main_cat},
+                'big_categories': self.category1,
+                #         'small_categories': category2,
+                "vote": {"$gte": 1},
+                'reviewTime':{"$gte":self.cond_date,"$type":"date"}
+                }
+                return key
+
+# Clothing, Shoes & Jewelry
+class Cloth_Shoes_Jewelry():
+        def __init__(self):
+                self.main_cat = 'Clothing, Shoes & Jewelry'
+                self.category1 = 'Clothing, Shoes & Jewelry'
+                self.category2 = 'Clothing, Shoes & Jewelry'
+        # 		self.db_col='new_Product2'
+                # self.cond_date = '2015-01-01'
+                self.cond_date = datetime(1900, 1, 1, 0, 0, 0)
+                
+        def getAttr(self):
+                return self.main_cat,self.category1,self.category2,self.cond_date
+                
+        def getProductKey(self):
+                key = {
+        "description": {'$ne': 'NaN', "$exists": True, "$type": "array"},
+        #         "main_cat": {'$eq': main_cat, "$type": "string", "$exists": True},
+        "category1": {'$eq': self.category1, "$type": "string", "$exists": True}
+        #         "category2": {'$eq': category2, "$type": "string", "$exists": True},
+        }       
+                return key
+
+        def getReviewKey(self):
+                # 增設條件if asin in [as1,as2,as3]
+                # 增設條件 找出前三名
+                # 預設查看前5個產品
+                # Query review
+                key = {
+                #         "main_cat": {'$eq': main_cat},
+                'big_categories': self.category1,
+                #         'small_categories': category2,
+                "vote": {"$gte": 1},
+                'reviewTime':{"$gte":self.cond_date,"$type":"date"}
+                }
+                return key          
+
+# Grocery & Gourmet Food
+class Grocery_Gourmet_Food():
+        def __init__(self):
+                self.main_cat = 'Grocery & Gourmet Food'
+                self.category1 = 'Grocery & Gourmet Food'
+                self.category2 = 'Grocery & Gourmet Food'
+        # 		self.db_col='new_Product2'
+                # self.cond_date = '2015-01-01'
+                self.cond_date = datetime(1900, 1, 1, 0, 0, 0)
+                
+        def getAttr(self):
+                return self.main_cat,self.category1,self.category2,self.cond_date
+                
+        def getProductKey(self):
+                key = {
+        "description": {'$ne': 'NaN', "$exists": True, "$type": "array"},
+        #         "main_cat": {'$eq': main_cat, "$type": "string", "$exists": True},
+        "category1": {'$eq': self.category1, "$type": "string", "$exists": True}
+        #         "category2": {'$eq': category2, "$type": "string", "$exists": True},
+        }       
+                return key
+
+        def getReviewKey(self):
+                # 增設條件if asin in [as1,as2,as3]
+                # 增設條件 找出前三名
+                # 預設查看前5個產品
+                # Query review
+                key = {
+                #         "main_cat": {'$eq': main_cat},
+                'big_categories': self.category1,
+                #         'small_categories': category2,
+                "vote": {"$gte": 1},
+                'reviewTime':{"$gte":self.cond_date,"$type":"date"}
+                }
+                return key                          
+
+# Automotive
+class Automotive():
+        def __init__(self):
+                self.main_cat = 'Automotive'
+                self.category1 = 'Automotive'
+                self.category2 = 'Automotive'
+        # 		self.db_col='new_Product2'
+                # self.cond_date = '2015-01-01'
+                self.cond_date = datetime(1900, 1, 1, 0, 0, 0)
+                
+        def getAttr(self):
+                return self.main_cat,self.category1,self.category2,self.cond_date
+                
+        def getProductKey(self):
+                key = {
+        "description": {'$ne': 'NaN', "$exists": True, "$type": "array"},
+        #         "main_cat": {'$eq': main_cat, "$type": "string", "$exists": True},
+        "category1": {'$eq': self.category1, "$type": "string", "$exists": True}
+        #         "category2": {'$eq': category2, "$type": "string", "$exists": True},
+        }       
+                return key
+
+        def getReviewKey(self):
+                # 增設條件if asin in [as1,as2,as3]
+                # 增設條件 找出前三名
+                # 預設查看前5個產品
+                # Query review
+                key = {
+                #         "main_cat": {'$eq': main_cat},
+                'big_categories': self.category1,
+                #         'small_categories': category2,
+                "vote": {"$gte": 1},
+                'reviewTime':{"$gte":self.cond_date,"$type":"date"}
+                }
+                return key      
+
+
+# Toys & Games
+class Toys_Games():
+        def __init__(self):
+                self.main_cat = 'Toys & Games'
+                self.category1 = 'Toys & Games'
+                self.category2 = 'Toys & Games'
+        # 		self.db_col='new_Product2'
+                # self.cond_date = '2015-01-01'
+                self.cond_date = datetime(1900, 1, 1, 0, 0, 0)
+                
+        def getAttr(self):
+                return self.main_cat,self.category1,self.category2,self.cond_date
+                
+        def getProductKey(self):
+                key = {
+        "description": {'$ne': 'NaN', "$exists": True, "$type": "array"},
+        #         "main_cat": {'$eq': main_cat, "$type": "string", "$exists": True},
+        "category1": {'$eq': self.category1, "$type": "string", "$exists": True}
+        #         "category2": {'$eq': category2, "$type": "string", "$exists": True},
+        }       
+                return key
+
+        def getReviewKey(self):
+                # 增設條件if asin in [as1,as2,as3]
+                # 增設條件 找出前三名
+                # 預設查看前5個產品
+                # Query review
+                key = {
+                #         "main_cat": {'$eq': main_cat},
+                'big_categories': self.category1,
+                #         'small_categories': category2,
+                "vote": {"$gte": 1},
+                'reviewTime':{"$gte":self.cond_date,"$type":"date"}
+                }
+                return key    
+
+'''
+        "Musical Instruments", 221428        
+        "Home & Kitchen", 2551313
+        "Clothing, Shoes & Jewelry", 2317765
+        "Grocery & Gourmet Food", 588533
+        "Automotive", 691566        
+        "Toys & Games", 829701
+'''                                             
+
+'''
+    db.getCollection('new_reviews2').find(
+        {"big_categories": {'$eq': 'Musical Instruments'}, "vote": {"$gte": 1}}
+         ).count()
+'''
+
+'''
+_,category1,category2,_ = Home_Kitchen().getAttr()
+_,category1,category2,_ = Cloth_Shoes_Jewelry().getAttr()
+_,category1,category2,_ = Grocery_Gourmet_Food().getAttr()
+_,category1,category2,_ = Automotive().getAttr()
+_,category1,category2,_ = Toys_Games().getAttr()
+'''

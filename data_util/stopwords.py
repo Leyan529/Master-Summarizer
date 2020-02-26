@@ -214,7 +214,9 @@ contractions = {
 	"U.S.A": "usa",
 	"multi-": " multiple ",
 	" i.e. ":" ",
-    " vs. ":" "
+    " vs. ":" ",
+	"i'v":"i have",
+	"'s":" "
 }
 
 html_escape_table = ["&amp;", "&quot;", "&apos;", "&gt;", "&lt;"]

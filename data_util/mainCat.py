@@ -401,3 +401,15 @@ db.getCollection('new_reviews2').find(
     {"main_cat": {'$eq': 'Musical Instruments'}, "vote": {"$gte": 1}}
      ).count()
 '''
+
+
+
+'''
+main_cat = CellPhones_Accessories().getAttr()
+main_cat = Camera_Photo().getAttr()
+main_cat = GPS_Navigation().getAttr()
+main_cat = Music_Instrum().getAttr()
+main_cat = Software().getAttr()
+main_cat = Computers().getAttr()
+main_cat = Video_Games().getAttr()
+'''

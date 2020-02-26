@@ -53,14 +53,14 @@ class MongoDB:
 		mongo_coll = self.mongo_db[db_col]
 		if len(ret_key.items()) != 0:
 			if limit:
-				cursor = mongo_coll.find(key, ret_key, no_cursor_timeout=True).limit(limit)  # 此處須注意，其回傳的並不是資料本身，你必須在迴圈中逐一讀出來的過程中，它才真的會去資料庫把資料撈出來給你。
+				cursor = mongo_coll.find(key, ret_key, no_cursor_timeout=True).limit(limit).batch_size(1)  # 此處須注意，其回傳的並不是資料本身，你必須在迴圈中逐一讀出來的過程中，它才真的會去資料庫把資料撈出來給你。
 			else:
-				cursor = mongo_coll.find(key, ret_key, no_cursor_timeout=True)  # 此處須注意，其回傳的並不是資料本身，你必須在迴圈中逐一讀出來的過程中，它才真的會去資料庫把資料撈出來給你。
+				cursor = mongo_coll.find(key, ret_key, no_cursor_timeout=True).batch_size(1)  # 此處須注意，其回傳的並不是資料本身，你必須在迴圈中逐一讀出來的過程中，它才真的會去資料庫把資料撈出來給你。
 		else:
 			if limit:
-				cursor = mongo_coll.find(key, no_cursor_timeout=True).limit(limit)  # 此處須注意，其回傳的並不是資料本身，你必須在迴圈中逐一讀出來的過程中，它才真的會去資料庫把資料撈出來給你。
+				cursor = mongo_coll.find(key, no_cursor_timeout=True).limit(limit).batch_size(1)  # 此處須注意，其回傳的並不是資料本身，你必須在迴圈中逐一讀出來的過程中，它才真的會去資料庫把資料撈出來給你。
 			else:
-				cursor = mongo_coll.find(key, no_cursor_timeout=True)  # 此處須注意，其回傳的並不是資料本身，你必須在迴圈中逐一讀出來的過程中，它才真的會去資料庫把資料撈出來給你。
+				cursor = mongo_coll.find(key, no_cursor_timeout=True).batch_size(1)  # 此處須注意，其回傳的並不是資料本身，你必須在迴圈中逐一讀出來的過程中，它才真的會去資料庫把資料撈出來給你。
 
 		return cursor
 
@@ -74,9 +74,9 @@ class MongoDB:
 	def searchInDBCount(self, key, db_col='Prod_Review',limit = False):
 		mongo_coll = self.mongo_db[db_col]
 		if limit:
-			cursor = mongo_coll.find(key,no_cursor_timeout=True).limit(limit) # 此處須注意，其回傳的並不是資料本身，你必須在迴圈中逐一讀出來的過程中，它才真的會去資料庫把資料撈出來給你。
+			cursor = mongo_coll.find(key,no_cursor_timeout=True).limit(limit).batch_size(1) # 此處須注意，其回傳的並不是資料本身，你必須在迴圈中逐一讀出來的過程中，它才真的會去資料庫把資料撈出來給你。
 		else:
-			cursor = mongo_coll.find(key, no_cursor_timeout=True)  # 此處須注意，其回傳的並不是資料本身，你必須在迴圈中逐一讀出來的過程中，它才真的會去資料庫把資料撈出來給你。
+			cursor = mongo_coll.find(key, no_cursor_timeout=True).batch_size(1)  # 此處須注意，其回傳的並不是資料本身，你必須在迴圈中逐一讀出來的過程中，它才真的會去資料庫把資料撈出來給你。
 		print("Search key {} in DB :{} Documents".format(key, cursor.count()))
 
 	def searchMainCategeory(self, key, db_col='Prod_Review'):
