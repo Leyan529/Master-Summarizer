@@ -1,0 +1,21 @@
+max_rev_len :1000 
+min_rev_len :50 
+mean_rev_len :203.02793943451616 
+median_rev_len :148.0 
+
+
+
+max_summary_len :40 
+min_summary_len :5 
+mean_summary_len :11.435082659525158 
+median_summary_len :10.0 
+
+
+
+max_FOP_keywords_num :110 
+min_FOP_keywords_num :2 
+mean_FOP_keywords_num :12.762321676881083 
+median_FOP_keywords_num :9.0 
+
+
+
