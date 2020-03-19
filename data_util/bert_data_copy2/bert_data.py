@@ -40,8 +40,7 @@ num_added_bert_toks = bert_tokenizer.add_tokens([UNKNOWN_TOKEN, START_DECODING, 
 # [START] 30524 [START] 
 # [STOP] 30525 [STOP]
 # [UNK] 100 [UNK]
-# print('We have added', num_added_bert_toks, 'bert tokens')
-print('We have ', len(bert_tokenizer), 'bert tokens now')
+print('We have added', num_added_bert_toks, 'tokens')
 
 # Transformers-XL
 tokenizer = TransfoXLTokenizer.from_pretrained('transfo-xl-wt103')
@@ -50,17 +49,15 @@ num_added_xl_toks = tokenizer.add_tokens([UNKNOWN_TOKEN, START_DECODING, STOP_DE
 # [UNK] 267735 [UNK]
 # [START] 267736 [START] 
 # [STOP] 267737 [STOP]
-print('We have added', num_added_xl_toks, 'XL tokens')
+print('We have added', num_added_xl_toks, 'tokens')
 
 
 import torchsnooper
 
 class Vocab(object):
   def __init__(self, vocab_file, max_size):
-    # bert_tokenizer.add_special_tokens({'bos_token':START_DECODING,'eos_token':STOP_DECODING,'unk_token':UNKNOWN_TOKEN})
-    # num_added_bert_toks = bert_tokenizer.add_tokens([UNKNOWN_TOKEN, START_DECODING, STOP_DECODING])
-    self.tokenizer = bert_tokenizer
     
+    self.tokenizer = bert_tokenizer
     # self.tokenizer = tokenizer
     self.tokenizer.max_len = config.max_enc_steps
 
@@ -98,8 +95,7 @@ class Vocab(object):
     # if word_id not in self.vocab:
     #   raise ValueError('Id not found in vocab: %d' % word_id)
     # return self.vocab[word_id]
-    # return self.tokenizer._convert_id_to_token(word_id)
-    return self.tokenizer.convert_ids_to_tokens(word_id)
+    return self.tokenizer._convert_id_to_token(word_id)
 
   def size(self):
     return len(self.vocab)
@@ -172,11 +168,11 @@ def summary2ids(summary_words, vocab, review_oovs):
 
 
 def outputids2words(id_list, vocab, review_oovs):
-  # words = []
+  words = []
   # print(id_list)
   # print(review_oovs)
   # print('-------------')
-  # for i in id_list:
+  for i in id_list:
     # try:
     #   w = vocab.id2word(i) # might be [UNK]
     # except ValueError as e: # w is OOV
@@ -187,11 +183,10 @@ def outputids2words(id_list, vocab, review_oovs):
     #     w = review_oovs[review_oov_idx]
     #   except ValueError as e: # i doesn't correspond to an review oov
     #     raise ValueError('Error: model produced word ID %i which corresponds to review OOV %i but this example only has %i review OOVs' % (i, review_oov_idx, len(review_oovs)))
-    # w = vocab.id2word(i) # might be [UNK]
-    # words.append(w)
+    w = vocab.id2word(i) # might be [UNK]
+    words.append(w)
   # print(words)
-  # return words
-  return vocab.id2word(id_list)
+  return words
 
 
 def summary2sents(summary):

@@ -396,7 +396,78 @@ def lemm_sent_process4(text, remove_stopwords=False, summary=False, mode="nltk",
 
 		text_lines = "".join(text_lines)
 		return text_lines
-        
+
+def lemm_sent_process5(text,summary=False):
+    doc = nlp(text)
+    # 通過設置doc.is_parsed = True來欺騙spaCy忽略它，即通過讓它相信分配了依賴關係解析並以這種方式應用了句子邊界
+    # doc.is_parsed = True
+    lines = nltk.sent_tokenize(text)
+    text_lines = []
+    for line in lines:
+        sentence = " ".join(
+            [
+                word.lemma_ if word.pos_.startswith('N') or word.pos_.startswith('J') or
+                            word.pos_.startswith('V') or word.pos_.startswith('R') else word.orth_
+                for word in doc
+                if (
+                (not word.is_space and
+                not word.is_bracket and
+                # not word.is_digit and
+                not word.is_left_punct and
+                not word.is_right_punct and
+                not word.is_bracket and
+                not word.is_quote and
+                not word.is_currency 
+                # not word.is_punct and							
+                # word.tag_ not in ["SYM", "HYPH"] and
+                # word.lemma_ != "-PRON-"
+                ))
+            ]
+        )
+        if summary:
+            sentence = '<s> ' + sentence + " </s>"
+        text_lines.append(sentence)
+    return " ".join(text_lines)
+
+def lemm_sent_process6(text,summary=False):
+    doc = nlp(text)
+    # 通過設置doc.is_parsed = True來欺騙spaCy忽略它，即通過讓它相信分配了依賴關係解析並以這種方式應用了句子邊界
+    # doc.is_parsed = True
+    # lines = nltk.sent_tokenize(text)
+    lines = list(doc.sents)
+    text_lines = []
+    # print(lines)
+    for line in lines:
+        sentence = " ".join(
+            ['<s>']+
+            [
+                word.lemma_ if word.pos_.startswith('N') or word.pos_.startswith('J') or
+                            word.pos_.startswith('V') or word.pos_.startswith('R') else word.orth_
+                for word in doc
+                if (
+                (not word.is_space and
+                not word.is_bracket and
+                # not word.is_digit and
+                not word.is_left_punct and
+                not word.is_right_punct and
+                not word.is_bracket and
+                not word.is_quote and
+                not word.is_currency 
+                # not word.is_punct and							
+                # word.tag_ not in ["SYM", "HYPH"] and
+                # word.lemma_ != "-PRON-"
+                ))
+            ] 
+            + ['</s>']
+        )
+        # if summary:
+        #     sentence = '<s> ' + sentence + " </s>"
+        text_lines.append(sentence)
+        text_lines = text_lines[:len(lines)-1]
+    # print(text_lines)
+    return " ".join(text_lines)    
+
+
 def getRelations(text):
     doc = nlp(text)
     feat_depend_info = []
@@ -876,6 +947,22 @@ def squeeze(s):
     s = s.replace(".", " .")
     s = s.replace("  ", " ")
     s = s.replace(" .", ".")
+    return s
+
+def squeeze2(s):  
+    char = " "
+    while char * 2 in s:
+        s = s.replace(char * 2, char)
+
+    char = "."
+    while char * 2 in s:
+        s = s.replace(char * 2, char)
+    return s
+
+def squeeze3(s):     
+    char = "."
+    while char * 2 in s:
+        s = s.replace(char * 2, char)
     return s
 
 

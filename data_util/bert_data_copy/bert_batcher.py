@@ -19,12 +19,6 @@ import torchsnooper
 import logging
 logging.getLogger("transformers.tokenization_utils").setLevel(logging.ERROR)
 
-from copy import deepcopy
-tokenizer = bert_data.bert_tokenizer
-# tokenizer = bert_data.tokenizer
-
-
-# tokenizer.add_tokens([bert_data.UNKNOWN_TOKEN, bert_data.START_DECODING, bert_data.STOP_DECODING])
 
 class Example(object):
 
@@ -32,63 +26,65 @@ class Example(object):
   def __init__(self, review, summary_sentences, keywords, vocab):
   # def __init__(self, review, summary_sentences,orign_review_text, vocab):
     # Get ids of special tokens
-    start_decoding = vocab.word2id(bert_data.START_DECODING) # start_decoding = 30524
-    stop_decoding = vocab.word2id(bert_data.STOP_DECODING) # stop_decoding = 30525 
-    unk_decoding = vocab.word2id(bert_data.UNKNOWN_TOKEN) # unk_decoding = 100
-    # print(start_decoding)
-    # print(stop_decoding)
-    # print('unk_decoding',unk_decoding)
-  
-    review_ids = tokenizer.encode(review, max_length = config.max_enc_steps, add_special_tokens=True)
-    review_words = tokenizer.convert_ids_to_tokens(review_ids)
-    self.enc_len = len(review_ids)
-    self.enc_input = review_ids
+    start_decoding = vocab.word2id(bert_data.START_DECODING) # start_decoding = 2
+    stop_decoding = vocab.word2id(bert_data.STOP_DECODING) # stop_decoding = 3
+    # print('start_decoding',start_decoding,'stop_decoding',stop_decoding)
+    # print('PAD_TOKEN',vocab.word2id(bert_data.PAD_TOKEN),
+    # 'UNKNOWN_TOKEN',vocab.word2id(bert_data.UNKNOWN_TOKEN))
+    
+    '''
+    start_decoding 100 stop_decoding 100
+    PAD_TOKEN 0 UNKNOWN_TOKEN 100
+    BERT_CLS 101 BERT_SEP 102
+    '''
+ 
+ 
+    # 先將review & summary 裡面的文字轉成ID ，再利用ID去word embedding lookup尋找對應的word2vec
+    # Process the review
+    # review_words = review.split() # review_words = [b'purchase', b'this', b'on', b'december', b'and...b'etc', b'be', b'very', b'happy', b'with', b'it']
+    
+    # 轉換為bert encode格式
+    review = bert_data.BERT_CLS + " " + review + " " + bert_data.BERT_SEP 
 
-    # key_ids = tokenizer.encode(keywords,max_length=config.max_key_num, add_special_tokens=False)
-    new_keywords = []
-    for item in keywords.split():
-      for i in item.split(","):
-        new_keywords.append(i)
-
-    key_words = [word for word in new_keywords if word.isalpha() and word in list(tokenizer.vocab.keys())]
-    key_words = key_words[:config.max_key_num]
-    key_ids = tokenizer.convert_tokens_to_ids(new_keywords)
-
-    if config.key_attention :
-      review_ids = tokenizer.encode(review, keywords,
-      max_length = config.max_enc_steps, add_special_tokens=True)
-      review_key_words = tokenizer.convert_ids_to_tokens(review_ids)
-      self.enc_len = len(review_ids)
-      self.enc_input = review_ids
-      # print('review_words',review_key_words)
-      # print('review_words',review_words)
+    # Tranformer 內部斷詞測試
+    review_words = bert_data.tokenizer.tokenize(review)
 
 
+    if len(review_words) > config.max_enc_steps - 1:
+      review_words = review_words[:config.max_enc_steps - 1] # 調小max_enc_steps
+      review_words[-1] = bert_data.BERT_SEP 
+    self.enc_len = len(review_words) # store the length after truncation but before padding
+    self.enc_input = vocab.word2id(review_words)   
+ 
+    # Process the keywords
+    # print(keywords)
+    # key_words = keywords.split()
+    key_words = vocab.exist_Keyword(keywords)
+    # key_words = [word for word in key_words if word in vocab.vocab] # 過濾不在vocabulary 的 keyword
+    if len(key_words) > config.max_key_num:
+      key_words = key_words[:config.max_key_num]  # 限定key_words數量    
 
-
-    self.enc_key_len = len(key_ids)  # store the length after truncation but before padding
-    self.enc_key_input = key_ids   # list of keyword ids; NO UNK token
+    self.enc_key_len = len(key_words)  # store the length after truncation but before padding
+    self.enc_key_input = vocab.word2id(key_words)   # list of keyword ids; NO UNK token
 
     summary = ' '.join(summary_sentences)  # string # summary = 'solid value performer'
     summary_words = summary.split()  # list of strings # summary_words = ['solid', 'value', 'performer']
     # sum_ids = [202, 5, 681, 5301, 6343] # summary_words = ['sony', 'be', 'fm', 'rec', 'dh']
-    sum_ids = tokenizer.encode(summary_words, add_special_tokens=False) # list of word ids; OOVs are represented by the id for UNK token  # Get the decoder input sequence and target sequence
+    # sum_ids = [vocab.word2id(w) for w in summary_words]  # list of word ids; OOVs are represented by the id for UNK token  # Get the decoder input sequence and target sequence
+    sum_ids = vocab.word2id(summary_words) 
 
-    # 將label summary拆為dec_input序列，並加上start_decoding符號
     self.dec_input, _ = self.get_dec_inp_targ_seqs(sum_ids, config.max_dec_steps, start_decoding, stop_decoding)
     self.dec_len = len(self.dec_input)
  
     # If using pointer-generator mode, we need to store some extra info
     # Store a version of the enc_input where in-review OOVs are represented by their temporary OOV id; also store the in-review OOVs words themselves
-    # 將 review_words拆解成 enc_input_extend_vocab (在字典裡的字) , review_oovs (不在字典裡的字)
     self.enc_input_extend_vocab, self.review_oovs = bert_data.review2ids(review_words, vocab)
-   
+    # print(self.enc_input_extend_vocab); print(self.review_oovs);print('------------------------')
+
     # Get a verison of the reference summary where in-review OOVs are represented by their temporary review OOV id
-    # 將 summary_words只表示成 vocab 和 review_oovs出現的單詞 => sum_ids_extend_vocab
     sum_ids_extend_vocab = bert_data.summary2ids(summary_words, vocab, self.review_oovs)
 
-
-    # 將label summary拆為序列，並加上start_decoding符號 # Get decoder target sequence 
+    # Get decoder target sequence
     _, self.target = self.get_dec_inp_targ_seqs(sum_ids_extend_vocab, config.max_dec_steps, start_decoding, stop_decoding)
 
   # Store the original strings
@@ -167,7 +163,7 @@ class Batch(object):  # call by class Batcher (fill_batch_queue)
 
       # Pad the encoder keyword input sequences up to the length of the longest keyword sequence
       for i,ex in  enumerate(example_list):
-        ex.pad_encoder_key_input(max_enc_key_len, self.pad_id) # topical keywords 不pad到最大長度
+        ex.pad_encoder_key_input(max_enc_key_len, self.pad_id)
         # print(i,ex.enc_key_input,len(ex.enc_key_input))
         # print('-------------------------\n')
       # Initialize the numpy arrays
@@ -384,7 +380,6 @@ class Batcher(object):
 #         tf.logging.error(e.features.feature[config.keywords].bytes_list.value[0])
 #         tf.logging.error('---------------------------------------------------')
         try:
-            # print(config.keywords)
             keywords_text = e.features.feature[config.keywords].bytes_list.value[0]  # the keywords text was saved under the key 'keywords' in the bert_data files
         except Exception as e:
             # print(e)
@@ -392,8 +387,6 @@ class Batcher(object):
         review_text = review_text.decode()
         summary_text = summary_text.decode()
         keywords_text = keywords_text.decode()
-        if len(tokenizer.encode(review_text)) >= 512 : continue
-
       except ValueError:
         tf.logging.error('Failed to get review or summary from example')
         continue

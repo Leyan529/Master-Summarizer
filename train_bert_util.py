@@ -21,7 +21,7 @@ def get_enc_data(batch):
     enc_lens = batch.enc_lens
     enc_key_lens = batch.enc_key_lens
 
-    ct_e = T.zeros(batch_size, 2*config.hidden_dim) # context vector
+    ct_e = T.zeros(batch_size, config.hidden_dim) # context vector
     # print('ct_e',ct_e.shape)
 
     enc_batch = get_cuda(enc_batch)
@@ -32,11 +32,9 @@ def get_enc_data(batch):
     ct_e = get_cuda(ct_e)
 
     enc_batch_extend_vocab = None
-    if batch.enc_batch_extend_vocab is not None:        
+    if batch.enc_batch_extend_vocab is not None:
         enc_batch_extend_vocab = T.from_numpy(batch.enc_batch_extend_vocab).long()
         enc_batch_extend_vocab = get_cuda(enc_batch_extend_vocab)
-        # print(enc_batch_extend_vocab.shape)
-        # print(enc_batch_extend_vocab)
 
     extra_zeros = None
     if batch.max_rev_oovs > 0:

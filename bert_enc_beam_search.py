@@ -1,7 +1,7 @@
 import numpy as np
 import torch as T
-from data_util import config, data
-from train_util import get_cuda
+from data_util import config, bert_data
+from train_bert_util import get_cuda
 
 
 class Beam(object):
@@ -13,7 +13,7 @@ class Beam(object):
         self.scores = T.FloatTensor(config.beam_size,1).fill_(-30)      #beam_size,1; Initial score of beams = -30
         self.tokens, self.scores = get_cuda(self.tokens), get_cuda(self.scores)
         self.scores[0][0] = 0  
-        
+
         # 每個batch中欲被decode的元素，將根據beam_size進行複製
         #At time step t=0, all beams should extend from a single beam. So, I am giving high initial score to 1st beam
         self.hid_h = h.unsqueeze(0).repeat(config.beam_size, 1)         #beam_size, hid_size
@@ -53,11 +53,15 @@ class Beam(object):
         scores = scores.view(-1,1)                                      #beam_size*n_extended_vocab, 1
         # torch.topk(input, k, dim=None, largest=True, sorted=True, out=None) -> (Tensor, LongTensor)
         # 求tensor中某个dim的前k(beam_size)大的值以及对应的index
+        # largest：如果为True，按照大到小排序； 如果为False，按照小到大排序
+        # sorted：返回的结果按照顺序返回
+        # 分數皆為負分取向，機率轉化為log分數時，直接對負分數值加總，取負分最小的前16個分支繼續搜索
         best_scores, best_scores_id = T.topk(input=scores, k=config.beam_size, dim=0)   #will be sorted in descending order of scores
 
         # best_scores: 16個beam_size的最佳分數
         # 因為best_scores_id總共有beam_size*vocab_size個非重複ID，因此除上字典大小還原
         self.scores = best_scores                                       #(beam,1); sorted
+        # print(best_scores)
         # beams_order為經過分數排序後的beam id排名索引 
         # ex: [ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15]
         beams_order = best_scores_id.squeeze(1)/n_extended_vocab        #(beam,); sorted
@@ -97,11 +101,13 @@ class Beam(object):
 
 def beam_search(enc_hid, enc_out, enc_padding_mask, ct_e, extra_zeros, enc_batch_extend_vocab, enc_key_batch, enc_key_lens, model, start_id, end_id, unk_id):
 
-    batch_size = len(enc_hid[0])
+    batch_size = len(enc_hid)
     beam_idx = T.LongTensor(list(range(batch_size)))
-    # print('batch enc_hid',enc_hid[0][0].shape);    
-    # print('batch ct_e',ct_e.shape);  
-    beams = [Beam(start_id, end_id, unk_id, (enc_hid[0][i], enc_hid[1][i]), ct_e[i]) for i in range(batch_size)]   #For each example in batch, create Beam object
+    # print('batch enc_hid',enc_hid[0,:].shape)
+    # print('batch enc_hid',enc_hid[0][0].shape)
+    # print('batch ct_e',ct_e.shape); 
+    # beams = [Beam(start_id, end_id, unk_id, (enc_hid[0][i], enc_hid[0][i]), ct_e[i]) for i in range(batch_size)]   #For each example in batch, create Beam object
+    beams = [Beam(start_id, end_id, unk_id, (enc_hid[i,:], enc_hid[i,:]), ct_e[i]) for i in range(batch_size)]   #For each example in batch, create Beam object
     n_rem = batch_size                                                  #Index of beams that are active, i.e: didn't generate [STOP] yet
     sum_temporal_srcs = None                                            #Number of examples in batch that didn't generate [STOP] yet
     prev_s = None
@@ -112,27 +118,26 @@ def beam_search(enc_hid, enc_out, enc_padding_mask, ct_e, extra_zeros, enc_batch
         x_t = T.stack(
             [beam.get_current_state() for beam in beams if beam.done == False]      #remaining(rem),beam
         ).contiguous().view(-1)                                                     #(rem*beam,)
-        
+        # x_t = model.embeds(x_t)                                                 #rem*beam, n_emb
         # print('beam_x_t',x_t.shape)
-        x_t = model.embeds(x_t)                                                 #rem*beam, n_emb
+        x_t, _ = model.encoder(x_t, None, None) # encoder summary (ok)
         # print('beam_emb_x_t',x_t.shape)
-
+        # print('dec_h',len(beams),beams[0].hid_h.shape)
         dec_h = T.stack(
             [beam.hid_h for beam in beams if beam.done == False]                    #rem*beam,hid_size
-        ).contiguous().view(-1,config.hidden_dim)
-        # print('hid_h',len(beams),beams[0].hid_h.shape)
+        ).contiguous().view(-1,config.emb_dim)
+        
         # print('beam_dec_h',dec_h.shape)
         dec_c = T.stack(
             [beam.hid_c for beam in beams if beam.done == False]                    #rem,beam,hid_size
-        ).contiguous().view(-1,config.hidden_dim)                                   #rem*beam,hid_size
+        ).contiguous().view(-1,config.emb_dim)                                   #rem*beam,hid_size
         # print('hid_c',len(beams),beams[0].hid_c.shape)
         # print('beam_dec_c',dec_c.shape)
         # print('beam_context',len(beams),beams[0].context.shape)
         ct_e = T.stack(
             [beam.context for beam in beams if beam.done == False]                  #rem,beam,hid_size
-        ).contiguous().view(-1,2*config.hidden_dim)                                 #rem,beam,hid_size
+        ).contiguous().view(-1,config.hidden_dim)                                 #rem,beam,hid_size
         # print('beam_ct_e',ct_e.shape)
-
         if sum_temporal_srcs is not None:
             sum_temporal_srcs = T.stack(
                 [beam.sum_temporal_srcs for beam in beams if beam.done == False]
@@ -144,7 +149,7 @@ def beam_search(enc_hid, enc_out, enc_padding_mask, ct_e, extra_zeros, enc_batch
             ).contiguous().view(-1, t, config.hidden_dim)                           #rem*beam, t-1, hid_size
 
 
-        s_t = (dec_h, dec_c)
+        s_t = (dec_h,dec_c)
         enc_out_beam = enc_out[beam_idx].view(n_rem,-1).repeat(1, config.beam_size).view(-1, enc_out.size(1), enc_out.size(2))
         enc_pad_mask_beam = enc_padding_mask[beam_idx].repeat(1, config.beam_size).view(-1, enc_padding_mask.size(1))
 
@@ -153,27 +158,38 @@ def beam_search(enc_hid, enc_out, enc_padding_mask, ct_e, extra_zeros, enc_batch
             extra_zeros_beam = extra_zeros[beam_idx].repeat(1, config.beam_size).view(-1, extra_zeros.size(1))
         enc_extend_vocab_beam = enc_batch_extend_vocab[beam_idx].repeat(1, config.beam_size).view(-1, enc_batch_extend_vocab.size(1))
 
+        # final_dist, s_t, ct_e, sum_temporal_srcs, prev_s = model.decoder(
+        # x_t, s_t, enc_out, enc_padding_mask,context, 
+        # extra_zeros,enc_batch_extend_vocab,sum_temporal_srcs, prev_s, 
+        # enc_key_batch, enc_key_lens)
         # beam search 在decode時找出final dist機率最大的beam size個單詞
         final_dist, (dec_h, dec_c), ct_e, sum_temporal_srcs, prev_s = model.decoder(
             x_t, s_t, enc_out_beam, enc_pad_mask_beam, ct_e, 
             extra_zeros_beam, enc_extend_vocab_beam, sum_temporal_srcs, prev_s, 
             enc_key_batch, enc_key_lens)              #final_dist: rem*beam, n_extended_vocab
 
+        # print('final_dist',final_dist.shape);
+        # print('dec_h',dec_h.shape);print('dec_c',dec_c.shape);print('ct_e',ct_e.shape);    
+        
         final_dist = final_dist.view(n_rem, config.beam_size, -1)                   #final_dist: rem, beam, n_extended_vocab
         dec_h = dec_h.view(n_rem, config.beam_size, -1)                             #rem, beam, hid_size
         dec_c = dec_c.view(n_rem, config.beam_size, -1)                             #rem, beam, hid_size
         ct_e = ct_e.view(n_rem, config.beam_size, -1)                             #rem, beam, 2*hid_size
 
+        
         if sum_temporal_srcs is not None:
             sum_temporal_srcs = sum_temporal_srcs.view(n_rem, config.beam_size, -1) #rem, beam, n_seq
 
         if prev_s is not None:
             prev_s = prev_s.view(n_rem, config.beam_size, -1, config.hidden_dim)    #rem, beam, t
-
+        # print('final_dist',final_dist.shape);
+        # print('dec_h',dec_h.shape);print('dec_c',dec_c.shape);print('ct_e',ct_e.shape);
+        # print('----------------------------------------------')
         # For all the active beams, perform beam search
         active = []         #indices of active beams after beam search
-
+        
         for i in range(n_rem):
+            # print('batch %s'%i)
             b = beam_idx[i].item()
             beam = beams[b]
             if beam.done:
@@ -184,6 +200,7 @@ def beam_search(enc_hid, enc_out, enc_padding_mask, ct_e, extra_zeros, enc_batch
                 sum_temporal_srcs_i = sum_temporal_srcs[i]                              #beam_size, n_seq
             if prev_s is not None:
                 prev_s_i = prev_s[i]                                                #beam_size, t, hid_size
+            # 每個batch_size中挑出一個元素做beam search搜尋
             beam.advance(final_dist[i], (dec_h[i], dec_c[i]), ct_e[i], sum_temporal_srcs_i, prev_s_i)
             if beam.done == False:
                 active.append(b)
@@ -196,7 +213,7 @@ def beam_search(enc_hid, enc_out, enc_padding_mask, ct_e, extra_zeros, enc_batch
 
     predicted_words = []
     for beam in beams:
-        predicted_words.append(beam.get_best())
+        predicted_words.append(beam.get_best()) # predicted_words: [batch_size * beam_size]
 
     return predicted_words
 
