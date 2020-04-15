@@ -172,7 +172,7 @@ def beam_search(enc_hid, enc_out, enc_padding_mask, ct_e, extra_zeros, enc_batch
 
         # For all the active beams, perform beam search
         active = []         #indices of active beams after beam search
-
+        # print('len(beams)',len(beams))
         for i in range(n_rem):
             b = beam_idx[i].item()
             beam = beams[b]

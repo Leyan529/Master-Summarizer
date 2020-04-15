@@ -245,10 +245,15 @@ class Decoder(nn.Module):
         # print('attn_dist_',type(attn_dist_))
         # print('vocab_dist',type(vocab_dist))
         # enc_batch_extend_vocab dim have error
+        # vocab_dist torch.Size([8, 50003])
+        # attn_dist_ torch.Size([8, 303])
+        # final_dist torch.Size([8, 50003])
+        # enc_batch_extend_vocab torch.Size([8, 303])
         final_dist = vocab_dist.scatter_add(1, enc_batch_extend_vocab, attn_dist_) # 已確定不是scatter_add問題
         # print('vocab_dist',vocab_dist.shape)
         # print('attn_dist_',attn_dist_.shape)
         # print('final_dist',final_dist.shape)
+        # print('enc_batch_extend_vocab',enc_batch_extend_vocab.shape)
         # print(s_t.shape)
         # print('final ct_e',ct_e.shape);
         # print(sum_temporal_srcs.shape)

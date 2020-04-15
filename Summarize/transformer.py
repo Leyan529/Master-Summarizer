@@ -9,15 +9,8 @@ import torchsnooper
 import numpy as np
 import sys
 import math
-# from utils.initialize import init_linear_weight, init_wt_normal, get_init_embedding
-# from utils.initialize import get_Word2Vec_weight, get_glove_weight, get_glove_weight2
-# from utils.initialize import get_bert_weight
-from utils.initialize import *
 
-# import logging
-# logging.getLogger("transformers.tokenization_utils").setLevel(logging.ERROR)
-# logging.getLogger("transformers").setLevel(logging.ERROR)
-# logging.getLogger("pytorch_pretrained_bert").setLevel(logging.ERROR)
+from utils.initialize import *
 
 # 引入 word2vec
 import gensim
@@ -25,9 +18,7 @@ from gensim.models import word2vec
 # 引入 glove
 from glove import Glove
 from glove import Corpus
-# 引入 bert
-# from pytorch_pretrained_bert import BertTokenizer, BertModel, BertForMaskedLM
-from transformers import BertModel, BertTokenizer 
+
 T.manual_seed(0)
 
 
@@ -57,18 +48,22 @@ class MultiheadAttention(nn.Module):
         nn.init.constant_(self.out_proj.bias, 0.)
 
     def forward(self, query, key, value, key_padding_mask=None, attn_mask=None, need_weights=False):
-        """ 
-            key_padding_mask: seqlen x batch
+        """            
+            key_padding_mask: batch  x seqlen
             attn_mask:  tgt_len x src_len
             mask 1 为忽略项
-            returns: attn[tgtlen * b_sz * srclen]
+            returns: attn[b_sz * tgtlen * srclen]
         """
-
+        # print('query',query.shape)
+        # print('key',key.shape)
+        # print('value',value.shape)
+        
         # 通过数据指针判断是自注意力还是... # data_ptr返回tensor首元素的内存地址
         qkv_same = query.data_ptr() == key.data_ptr() == value.data_ptr()   # py支持连等号的奥
         kv_same = key.data_ptr() == value.data_ptr()
 
-        tgt_len, b_sz, embed_dim = query.size()
+        # tgt_len, b_sz, embed_dim = query.size()
+        b_sz, tgt_len, embed_dim = query.size()
         assert key.size() == value.size()
 
         if qkv_same: # 合在一起是能加快速度么...
@@ -83,20 +78,26 @@ class MultiheadAttention(nn.Module):
             k = self.in_proj_k(key)
             v = self.in_proj_v(value)
         q *= self.scaling
-        
+        # print('q',q.shape)
         q = q.contiguous().view(tgt_len, b_sz * self.num_heads, self.head_dim).transpose(0, 1)
+        # print('k',k.shape)
         k = k.contiguous().view(-1, b_sz * self.num_heads, self.head_dim).transpose(0, 1)
         v = v.contiguous().view(-1, b_sz * self.num_heads, self.head_dim).transpose(0, 1)
+
+        # q = q.contiguous().view(tgt_len, b_sz * self.num_heads, self.head_dim)
+        # k = k.contiguous().view(-1, b_sz * self.num_heads, self.head_dim)
+        # v = v.contiguous().view(-1, b_sz * self.num_heads, self.head_dim)
 
         src_len = k.size(1)
         # k,v: b_sz*heads x src_len x dim
         # q: b_sz*heads x tgt_len x dim 
 
         attn_weights = T.bmm(q, k.transpose(1, 2))      # Q * K^T
-        assert list(attn_weights.size()) == [b_sz * self.num_heads, tgt_len, src_len]
-        
+        assert list(attn_weights.size()) == [b_sz * self.num_heads, tgt_len, src_len]        
         if attn_mask is not None:   # tgt self-att mask (triu)
+            # print('attn_mask',attn_mask.shape)
             attn_weights.masked_fill_(
+                # attn_mask.unsqueeze(0).bool(), # masked_fill expects num of dim tobe same
                 attn_mask.unsqueeze(0).bool(), # masked_fill expects num of dim tobe same
                 float('-inf')
             )
@@ -104,9 +105,13 @@ class MultiheadAttention(nn.Module):
         if key_padding_mask is not None:
             # don't attend to padding symbols
             attn_weights = attn_weights.view(b_sz, self.num_heads, tgt_len, src_len) # extends            
+            # print('attn_weights',attn_weights.shape)
+            # print('key_padding_mask',key_padding_mask.shape)
+            # print('------------------')
             attn_weights.masked_fill_(
                 # mask: b_sz, 1, 1, src_len
-                key_padding_mask.transpose(0, 1).unsqueeze(1).unsqueeze(2).bool(),
+                # key_padding_mask.transpose(0, 1).unsqueeze(1).unsqueeze(2).bool(),
+                key_padding_mask.unsqueeze(1).unsqueeze(2).bool(),
                 float('-inf')
             )
             attn_weights = attn_weights.view(b_sz * self.num_heads, tgt_len, src_len)
@@ -122,7 +127,9 @@ class MultiheadAttention(nn.Module):
 
         assert list(attn.size()) == [b_sz * self.num_heads, tgt_len, self.head_dim]
         
-        attn = attn.transpose(0, 1).contiguous().view(tgt_len, b_sz, embed_dim)
+        # attn = attn.transpose(0, 1).contiguous().view(tgt_len, b_sz, embed_dim)
+        # attn = attn.contiguous().view(tgt_len, b_sz, embed_dim)
+        attn = attn.contiguous().view(b_sz, tgt_len, embed_dim)
         attn = self.out_proj(attn)
 
         if need_weights:
@@ -130,10 +137,12 @@ class MultiheadAttention(nn.Module):
             #attn_weights, _ = attn_weights.max(dim=1)  # max pooling
             #attn_weights = attn_weights[:, 0, :, :]    # 只拿第k个head > <
             attn_weights = attn_weights.mean(dim=1)    # mean pooling
-            attn_weights = attn_weights.transpose(0, 1)
+            # attn_weights = attn_weights.transpose(0, 1)
+            attn_weights = attn_weights
         else:
             attn_weights = None
-        
+        # print('MultiheadAttention',attn.shape)
+        # print('MultiheadAttention',attn)
         return attn, attn_weights
 
     def in_proj_qkv(self, query):
@@ -237,9 +246,11 @@ class LayerNorm(nn.Module):
         nn.init.constant_(self.bias, 0.)
     
     def forward(self, x):
+        # print('LayerNorm_x',x.shape)
         u = x.mean(-1, keepdim=True)
         s = (x - u).pow(2).mean(-1, keepdim=True)
         x = (x - u) / T.sqrt(s + self.eps)
+        # print('LayerNorm_o',(self.weight * x + self.bias).shape)
         return self.weight * x + self.bias
 
 class WordProbLayer(nn.Module):
@@ -275,24 +286,66 @@ class WordProbLayer(nn.Module):
             max_ext_len: max len of extended vocab
             returns: softmaxed probabilities, copy attention distribs
         """
-        if self.copy:
-            # dists: seqlen * b_sz * seqlen
-            # pred: seqlen * b_sz * vocab_size
-            atts, dists = self.external_attn(query=h, key=memory, value=memory, key_padding_mask=src_mask, need_weights = True)
+        if self.copy: # pointer mechanism (as suggested in eq 9 https://arxiv.org/pdf/1704.04368.pdf)
+            # attn_dist: b_sz * seqlen * seqlen 等同於 PG 的 attn_dist
+            # pred: b_sz * seqlen * vocab_size  等同於 PG 的 vocab_dist
+            # print('h',h.shape)
+            # print('memory',memory.shape)
+            # print('src_mask',src_mask.shape)
+            # h torch.Size([1, 16, 512])
+            # memory torch.Size([2, 131, 512])
+            # src_mask torch.Size([2, 131])
+            atts, attn_dist = self.external_attn(query=h, key=memory, value=memory, key_padding_mask=src_mask, need_weights = True)
+            if h.shape[0] != emb.shape[0]:
+                # print('check')
+                # x = T.cat((x,x[:external_memories.shape[0]-x.shape[0]]),dim=0) 
+                emb = T.cat((emb,emb[:(h.shape[0]-emb.shape[0])+1]),dim=0)
+            
+            # print('h',h.shape)
+            # print('emb',emb.shape)
+            # print('atts',atts.shape)
+            # print('------------------------------')
             pred = T.softmax(self.proj(T.cat([h, emb, atts], -1)), dim=-1)        #原词典上的概率分布
+            
             if extra_zeros is not None:
-                pred = T.cat((pred, extra_zeros.repeat(pred.size(0),1,1)), -1)
-            g = T.sigmoid(self.prob_copy(T.cat([h, emb, atts], -1)))              #计算生成概率g
-            # tokens应与dists的大小保持一致, 并仅在最后一维大小与pred不同
-            tokens = tokens.unsqueeze(0).repeat(pred.size(0), 1, 1)
-            # 在最后一维(即预测概率分布)上scatter
-            pred = (g * pred).scatter_add(2, tokens, (1 - g) * dists)
+                cat_extra_zeros = extra_zeros.repeat(1,pred.size(1),1)          # 沿着指定的维度[pred.size(0),1,1]重复张量
+                pred = T.cat((pred, cat_extra_zeros), -1)                       # 更新詞彙表分布
+            # -----------------------------------------------------------------------
+            p_gen = T.sigmoid(self.prob_copy(T.cat([h, emb, atts], -1)))              #计算生成概率g            
+            # attn_dist应与dists的大小保持一致, 并仅在最后一维大小与pred不同
+            # print('attn_dist',attn_dist.shape)
+            # print('pred',pred.shape)
+            # print('attn_dist_unsqueeze',attn_dist.unsqueeze(1).shape)
+
+            tokens = tokens.unsqueeze(1).repeat(1, pred.size(1), 1)
+            # print('tokens',tokens.shape)
+                       
+            # print('pred',(p_gen * pred).shape)
+            # print('-----------------------------------')
+            # print('tokens',tokens.shape)
+            # print('attn_dist',attn_dist.shape)
+            pred = (p_gen * pred).scatter_add(2, tokens, (1 - p_gen) * attn_dist)     # 在最后seq维(即预测概率分布)上scatter 
+
+            '''
+            target = self.scatter_add_(dim, index, other) → Tensor
+            将张量other所有值加到index张量中指定的index处的self中. 对于中的每个值other ，
+            它被添加到索引中的self其通过它的索引中指定的other用于dimension != dim ，并通过在相应的值index为dimension = dim
+            
+            使用CUDA后端时，此操作可能会导致不确定的行为，不容易关闭. 请参阅有关可重现性的说明作为背景.
+
+            REPRODUCIBILITY
+            在PyTorch发行版，单独的提交或不同的平台上，不能保证完全可重复的结果. 此外，即使使用相同的种子，结果也不必在CPU和GPU执行之间再现.
+            https://s0pytorch0org.icopy.site/docs/stable/notes/randomness.html
+            '''
+                
         else:
             pred = T.softmax(self.proj(h), dim=-1)
-            dists = None
-        return pred, dists
+            attn_dist = None
+            # [bsz, seq, vocab_size]
+        # print(pred.shape)
+        return pred, attn_dist
 
-class LabelSmoothing(nn.Module):
+class LabelSmoothing(nn.Module): # no problem
     "Implement label smoothing."
     def __init__(self, size, padding_idx, label_smoothing=0.0):
         super(LabelSmoothing, self).__init__()
@@ -371,13 +424,38 @@ class TransformerLayer(nn.Module):
         """ returns: x, self_att or src_att """
         # x: seq_len x b_sz x embed_dim
         
+        # print('x',x.shape)
         residual = x
         x, self_attn = self.self_attn(query=x, key=x, value=x, key_padding_mask=self_padding_mask, attn_mask=self_attn_mask, need_weights = need_weights)
         x = self.dropout(x)
+        # print('self_attn',x.shape)
+        # print('self_attn',x)
+        # print('residual',residual.shape)
+        # print('x',x.shape)
+        # print('residual + x',(residual + x).shape)
         x = self.attn_layer_norm(residual + x)  # norm前都接dropout嗷
 
         if self.with_external:
-            residual = x            
+            residual = x    
+            if x.shape[0] != external_memories.shape[0]:
+                # external_memories = external_memories[:x.shape[0],:,:] 
+                # print('x',x.shape)       
+                # print('external_memories',external_memories.shape)  
+                # external_memories = external_memories[:x.shape[0],:,:]      
+                # print(external_padding_mask.shape)
+                # external_padding_mask = external_padding_mask[:x.shape[0],:]      
+                # print('new_external_memories',external_memories.shape)  
+                # external_attn = None
+                #-----------------------------------
+                # x = x.repeat(2, 1, 1)
+                # print('check')
+                x = T.cat((x,x[:(external_memories.shape[0]-x.shape[0])+1]),dim=0) 
+                #-----------------------------------
+                # print('x2',x.shape) 
+                # print('external_memories',external_memories.shape)  
+                # print('external_padding_mask',external_padding_mask.shape)  
+            # # # else:
+                
             x, external_attn = self.external_attn(query=x, key=external_memories, value=external_memories, key_padding_mask=external_padding_mask, need_weights = need_weights)
             x = self.dropout(x)
             x = self.external_layer_norm(residual + x)
@@ -395,9 +473,9 @@ class TransformerLayer(nn.Module):
 class Model(nn.Module):
     def __init__(self,pre_train_emb,word_emb_type,vocab,config):
         super(Model, self).__init__()
-        dropout = 0.2
-        num_layers = 4
-        d_ff = 1024
+        dropout = 0.1
+        num_layers = 6
+        d_ff = 2048
         self.padding_idx = 0 # pad token id 
         smoothing = 0.1
         # self.copy = True
@@ -425,9 +503,10 @@ class Model(nn.Module):
             self.enc_layers.append(TransformerLayer(config.hidden_dim, d_ff, num_heads,
             dropout))
             # self.dec_layers.append(TransformerLayer(config.hidden_dim, d_ff, num_heads,
-            # dropout, with_external=True))
+            # dropout, with_external=False))
             self.dec_layers.append(TransformerLayer(config.hidden_dim, d_ff, num_heads,
-            dropout, with_external=False))
+            dropout, with_external=True))
+            
     
     def reset_parameters(self):
         init_uniform_weight(self.word_embed.weight)
@@ -447,7 +526,7 @@ class Model(nn.Module):
         # 本损失函数中, 每个词的损失不对seqlen作规范化
         return self.label_smoothing(pred.view(seq_len * b_sz, -1),
                     gold.contiguous().view(seq_len * b_sz, -1)) / mask.sum() # avg loss
-        
+
     def nll_loss(self, pred:T.Tensor, gold, dec_lens):
         """
             nll: 指不自带softmax的loss计算函数
@@ -458,11 +537,12 @@ class Model(nn.Module):
         # print('gold',gold[0,:])
         # print('pred',pred.shape)
         # pred[T.isnan(pred)] = 0
-        gold_prob = pred.gather(dim=2, index=gold.unsqueeze(2)).squeeze(2).clamp(min=1e-8)  # cross entropy
+        pred_gather = pred.gather(dim=2, index=gold.unsqueeze(2))
+        # print('pred_gather',pred_gather.shape)
+        gold_prob = pred_gather.squeeze(2).clamp(min=1e-8)  # cross entropy
         # print('gold_prob',gold_prob.shape)
-        # print('gold_prob',gold_prob[0,:])
         # print('gold_prob',gold_prob.log().masked_fill(gold.eq(self.padding_idx), 0.).sum(dim=0).shape)
-        gold_prob = gold_prob.log().masked_fill(gold.eq(self.padding_idx), 0.).sum(dim=0) / dec_lens   # batch内规范化
+        gold_prob = gold_prob.log().masked_fill(gold.eq(self.padding_idx), 0.).sum(dim=1) / dec_lens   # batch内规范化
         # print('gold_prob_mean',-gold_prob.mean())
         # print('-----------------------------------')
         return -gold_prob.mean()
@@ -474,29 +554,31 @@ class Model(nn.Module):
         # print('inputs',inputs.shape)
         # print(config.vocab_size, config.emb_dim, self.padding_idx)
         # print(inputs)
-        # #test word_embed
-        # print(self.word_embed(inputs).shape)
-        # #test pos_embed
-        # print(self.pos_embed(inputs).shape)        
-        # x = self.word_embed(inputs) + self.pos_embed(inputs)
-        x = self.word_embed(inputs)
+        #test word_embed
+        # print('word_embed',self.word_embed(inputs).shape)
+        #test pos_embed
+        # print('pos_embed',self.pos_embed(inputs).shape)        
+        x = self.word_embed(inputs) + self.pos_embed(inputs)
+        # x = self.word_embed(inputs)
+        # x = self.pos_embed(inputs)
+        # print('x',x.shape)
         x = self.dropout(self.emb_layer_norm(x))
 
         # print('padding_mask',padding_mask.shape,padding_mask)
         for idx ,layer in enumerate(self.enc_layers):
             # print('enc_encode',idx)
             # print(idx,'x',x)
-            x, _, _ = layer(x, self_padding_mask=padding_mask)
-        
-        # print('x',x)
+            x, _, _ = layer(x, self_padding_mask=padding_mask)        
+            # print('x',x)
+
         return x, padding_mask
 
-    def decode(self, inputs, src, src_padding_mask, padding_mask=None,
+    def decode(self, inputs, src, src_padding_mask, tgt_padding_mask=None,
                 src_extend_vocab = None, extra_zeros = None):      # if copy enabled
         """ copy not implemented """
-        seqlen, _ = inputs.size()
-        if not self.is_predicting and padding_mask is None:
-            padding_mask = inputs.eq(self.padding_idx)
+        _ , seqlen = inputs.size()
+        if not self.is_predicting and tgt_padding_mask is None:
+            tgt_padding_mask = inputs.eq(self.padding_idx)
         x = self.word_embed(inputs) + self.pos_embed(inputs)
         x = self.dropout(self.emb_layer_norm(x))
         emb = x
@@ -510,7 +592,7 @@ class Model(nn.Module):
             # print('self_attn_mask',self_attn_mask.shape)
             # print('external_memories',src.shape)
             # print('external_padding_mask',src_padding_mask.shape)
-            x,_,_ = layer(x, self_padding_mask=padding_mask, 
+            x,_,_ = layer(x, self_padding_mask=tgt_padding_mask, 
             self_attn_mask=self_attn_mask,
             external_memories=src, 
             external_padding_mask=src_padding_mask)
@@ -542,11 +624,13 @@ class Model(nn.Module):
         # print('src_padding_mask',src_padding_mask.shape)
         # print('tgt_padding_mask',tgt_padding_mask.shape)
         # print('src_extend_vocab',src_extend_vocab.shape)
-        # tgt torch.Size([6, 1])
-        # src_enc torch.Size([64, 1, 512])
-        # src_padding_mask torch.Size([64, 1])
-        # tgt_padding_mask torch.Size([6, 1])
-        # src_extend_vocab torch.Size([1, 64])
+        # print('--------------------------------------------')
+        # # print('extra_zeros',extra_zeros)
+        # tgt torch.Size([8, 14])
+        # src_enc torch.Size([8, 533, 512])
+        # src_padding_mask torch.Size([8, 533])
+        # tgt_padding_mask torch.Size([8, 14])
+        # src_extend_vocab torch.Size([8, 533])
         # print('extra_zeros',extra_zeros)
         # extra_zeros tensor([[[0., 0., 0., 0., 0., 0., 0.]]], device='cuda:0')
         return pred

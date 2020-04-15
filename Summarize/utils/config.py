@@ -7,8 +7,10 @@ vocab_size = 60000
 # word_emb_type = 'word2Vec' # glove , bert , gpt-2
 
 
-data_type = 'Cameras_new8'
+# data_type = 'Cameras_new8'
 # data_type = 'Cameras_high_acc_3' # Cameras_high_acc_3  loss可降至1以內
+data_type = 'Cameras'
+# data_type = 'Mix6_mainCat'
 
 keywords = "POS_FOP_keywords"
 

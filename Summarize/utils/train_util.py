@@ -36,6 +36,7 @@ def re_config(opt):
     config.word_emb_type = opt.word_emb_type
     config.mle_weight = opt.mle_weight
     config.rl_weight = 1 - opt.mle_weight
+    config.train_rl = opt.train_rl
     config.load_ckpt = opt.load_ckpt
     
     config.word_emb_path = config.Data_path + "Embedding/%s/%s.%sd.txt"%(config.word_emb_type,config.word_emb_type,config.emb_dim)
@@ -50,17 +51,70 @@ def re_config(opt):
     config.transformer = opt.transformer
     config.batch_size = opt.batch_size
     #------------------------------------------
-    config.copy = False
-    config.coverage = False
+    # config.copy = False
+    # config.coverage = True
+    #------------------------------------------
+    # config.copy = True
+    # config.coverage = False
+    #------------------------------------------
+    config.copy = opt.copy
+    config.coverage = True
+    #------------------------------------------
+
     # 'max_src_ntokens': 400,
     # 'max_tgt_ntokens': 100,
     return config
 
+def getName(config):
+    if not config.transformer:
+        loggerName = 'Pointer_generator_%s' % (config.word_emb_type)
+    else:
+        loggerName = 'Transformer_%s' % (config.word_emb_type)
+        
+    if config.intra_encoder and config.intra_decoder and True :
+        loggerName = loggerName + '_Intra_Atten'
+    if config.key_attention:
+        loggerName = loggerName + '_Key_Atten'
+
+    if not config.pre_train_emb:
+        loggerName = loggerName.replace(config.word_emb_type,'no_pretrain')
+
+    if config.train_rl:
+        loggerName = loggerName + '_RL'
+
+    if config.transformer and config.copy:
+        loggerName = loggerName + '_COPY'
+
+    model_name = ''
+    if not config.transformer:
+        model_name = model_name + 'Pointer-Generator'
+    else:
+        model_name = model_name + 'Transformer'
+
+    if (not config.intra_encoder) and (not config.intra_decoder) and (not config.transformer) :
+        model_name = model_name + '_NoIntra'
+
+    if (config.key_attention) and (not config.transformer) :
+        model_name = model_name + '_Key_Atten'
+
+    if config.transformer and config.copy:
+        model_name = model_name + '_COPY'
+
+    if config.train_rl:
+        model_name = model_name + '_RL'
+    
+    if not config.pre_train_emb:
+        writerPath = 'runs/%s/%s/%s/exp'% (config.data_type, model_name,'NoPretrain')
+    else:
+        writerPath = 'runs/%s/%s/%s/exp'% (config.data_type, model_name,config.word_emb_type)
+
+    return  loggerName, writerPath     
+
 def getLogger(loggerName):
     # 取得日期
-    today = dt.now()
-    loggerPath = "LOG/%s-(%s_%s_%s)-(%s:%s:%s)"%(config.word_emb_type,
-    today.year,today.month,today.day,today.hour,today.minute,today.second)
+    # today = dt.now()
+    # loggerPath = "LOG/%s-(%s_%s_%s)-(%s:%s:%s)"%(config.word_emb_type,
+    # today.year,today.month,today.day,today.hour,today.minute,today.second)
     
     # 設置logger
     logger = logging.getLogger(loggerName)  # 不加名稱設置root logger
@@ -71,14 +125,14 @@ def getLogger(loggerName):
         datefmt='%Y-%m-%d %H:%M:%S')
     logging.Filter(loggerName)
 
-    # 使用FileHandler輸出到文件
-    directory = os.path.dirname(loggerPath)
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    fh = logging.FileHandler(loggerPath)
+    # # 使用FileHandler輸出到文件
+    # directory = os.path.dirname(loggerPath)
+    # if not os.path.exists(directory):
+    #     os.makedirs(directory)
+    # fh = logging.FileHandler(loggerPath)
 
-    fh.setLevel(logging.DEBUG)
-    fh.setFormatter(formatter)
+    # fh.setLevel(logging.DEBUG)
+    # fh.setFormatter(formatter)
 
     # 使用StreamHandler輸出到屏幕
     ch = logging.StreamHandler()
@@ -130,7 +184,8 @@ def get_input_from_batch(batch, config, batch_first = False):
     coverage_1 = None
 
 #     if config['copy']:
-    if (not config.transformer) or (config.transformer and config.copy):
+    # if (not config.transformer) or (config.transformer and config.copy):
+    if (not config.transformer) or (config.transformer):
         enc_batch_extend_vocab = get_cuda(batch.art_batch_extend_vocab)
         # max_art_oovs is the max over all the article oov list in the batch
         if batch.max_art_oovs > 0:

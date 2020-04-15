@@ -15,24 +15,72 @@ class Beam(object):
         self.scores = T.FloatTensor(config.beam_size,1).fill_(-30)      #beam_size,1; Initial score of beams = -30
         self.tokens, self.scores = get_cuda(self.tokens), get_cuda(self.scores)
         self.scores[0][0] = 0  
+        # self.coverage = coverage
         
         # 每個batch中欲被decode的元素，將根據beam_size進行複製
-        # self.coverage = coverage.unsqueeze(0).repeat(config.beam_size, 1) #beam_size, 2*hid_size
+        if type(coverage) == T.tensor:
+            self.coverage = coverage.unsqueeze(0).repeat(config.beam_size, 1) #beam_size, 2*hid_size
+        else:
+            self.coverage = None
         # self.sum_temporal_srcs = None
         # self.prev_s = None
         self.done = False
         self.end_id = end_id
         self.unk_id = unk_id
+        
+        # print('self.tokens',self.tokens.shape)
+        # print('self.coverage',self.coverage.shape)
 
-    def get_current_state(self):
-        tokens = self.tokens[:,-1].clone()
+
+    # def get_current_state(self,step):
+    #     tokens = self.tokens[:,-1].clone()
+    #     for i in range(len(tokens)):
+    #         if tokens[i].item() >= config.vocab_size: # 如果token id大於vocab_size，則將其置換為unk_id
+    #             tokens[i] = self.unk_id
+    #     return tokens
+
+    def c_score(self, coverage):
+        return 0 if coverage is None else\
+                 -beta*(coverage.clamp_min(1.).sum() - coverage.size(0))
+
+    @property
+    def coverage_prob(self):
+        return sum(self.log_probs) + self.c_score                 
+
+    # def get_current_state(self,step):
+    #     tokens = self.tokens[:,:step].clone()
+    #     for i in range(len(tokens)):
+    #         for j in range(step):
+    #             if tokens[i][j].item() >= config.vocab_size: # 如果token id大於vocab_size，則將其置換為unk_id
+    #                 tokens[i][j] = self.unk_id
+    #     print('get_current_state',tokens)
+    #     return tokens
+
+    def get_current_state(self,step):
+        # print('self.tokens',self.tokens.shape)
+        tokens = self.tokens[:,:step].clone()
+        # print('tokens',tokens.shape)
         for i in range(len(tokens)):
-            if tokens[i].item() >= config.vocab_size: # 如果token id大於vocab_size，則將其置換為unk_id
-                tokens[i] = self.unk_id
+            for j in range(step):
+                if tokens[i][j].item() >= config.vocab_size: # 如果token id大於vocab_size，則將其置換為unk_id
+                    tokens[i][j] = self.unk_id
+        # print('get_current_%s_state'%step,tokens)
         return tokens
 
+    def sort_beams(self, avg_log_probs, converge, beams_order):
+            order_log_probs =  avg_log_probs[beams_order]
+            if type(converge) == T.Tensor:
+                order_converge = converge[beams_order]
+                order_c_score = get_cuda(T.FloatTensor([self.c_score(converge) for converge in order_converge]))
+            else:
+                order_c_score = get_cuda(T.FloatTensor([self.c_score(None) for _ in beams_order]))
+            coverage_prob = self.scores + order_c_score.unsqueeze(1)
+            coverage_prob = {idx:score for idx, score in enumerate(coverage_prob)}
+            beams_order = [k for k,v in sorted(coverage_prob.items(), key=lambda item: item[1],reverse=True)]
+            return beams_order
 
-    def advance(self, prob_dist):
+   
+    def advance(self, n_rem, prob_dist, step, converge):
         '''Perform beam search: Considering the probabilites of given n_beam x n_extended_vocab words, select first n_beam words that give high total scores
         :param prob_dist: (beam, n_extended_vocab)
         :param hidden_state: Tuple of (beam, hid_size) tensors
@@ -40,31 +88,67 @@ class Beam(object):
         :param sum_temporal_srcs:   (beam, n_seq)
         :param prev_s:  (beam, t, hid_size)
         '''
-        n_extended_vocab = prob_dist.size(1)
+        # print('prob_dist',prob_dist.shape)
+        # print('converge',converge.shape)
+        # print('c_score',self.c_score)
+        n_extended_vocab = prob_dist.size(2)
+        # print('n_extended_vocab',n_extended_vocab)
         # 將機率轉化為log score
         log_probs = T.log(prob_dist+config.eps)                         #beam_size, n_extended_vocab # log_probs(16,36333)
+
+        
+        log_probs = log_probs.view(1, config.beam_size, prob_dist.shape[-1] )
+
         # 重新計算一個新的分數
         scores = log_probs + self.scores                                #[beam_size, n_extended_vocab=36333]
+        # print('scores',scores.shape)
+        scores = scores.view(-1,1) 
+        # print('scores',scores.shape)
+        scores = scores.unsqueeze(0)
+
         # 將每一個分數展開回一維的tensor
-        scores = scores.view(-1,1)                                      #beam_size*n_extended_vocab, 1
+        # scores = scores.view(-1,1)                                      #beam_size*n_extended_vocab, 1
         # torch.topk(input, k, dim=None, largest=True, sorted=True, out=None) -> (Tensor, LongTensor)
         # 求tensor中某个dim的前k(beam_size)大的值以及对应的index
-        best_scores, best_scores_id = T.topk(input=scores, k=config.beam_size, dim=0)   #will be sorted in descending order of scores
+        best_scores, best_scores_id = T.topk(input=scores, k=config.beam_size, dim=1)   #will be sorted in descending order of scores
+        # print('best_scores',best_scores.shape)
+        # print('best_scores_id',best_scores_id.shape)        
 
         # best_scores: 16個beam_size的最佳分數
         # 因為best_scores_id總共有beam_size*vocab_size個非重複ID，因此除上字典大小還原
         self.scores = best_scores                                       #(beam,1); sorted
         # beams_order為經過分數排序後的beam id排名索引 
         # ex: [ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15]
-        beams_order = best_scores_id.squeeze(1)/n_extended_vocab        #(beam,); sorted
+        beams_order = best_scores_id.squeeze(2)/n_extended_vocab        #(beam,); sorted   # sort_beams
+        # print('squeeze_best_scores_id',best_scores_id.squeeze(2))
         # best_words為分數索引經餘數轉換後的詞彙表索引
         # ex: [  1996,  38329,  74662, 110995, 147328, 183661, 219994, 256327, 292660, 328993, 365326, 401659, 437992, 474325, 510658, 546991]
         best_words = best_scores_id%n_extended_vocab                    #(beam,1); sorted
+        # print('best_words',best_words)
+        # print('beams_order',beams_order)
 
-        # self.coverage = coverage[beams_order]
         self.tokens = self.tokens[beams_order]                          #(beam, t); sorted
-        self.tokens = T.cat([self.tokens, best_words], dim=1)           #(beam, t+1); sorted
-
+        self.tokens = T.cat([self.tokens, best_words], dim=2)           #(beam, t+1); sorted
+        self.tokens = self.tokens.squeeze(0)
+        # -----------------------------sort_beams-------------------------------------     
+        # print('best_scores',best_scores.squeeze(2))
+        avg_log_probs = T.sum(best_scores.squeeze(2),dim=0) # avg log_probs for all sequence
+        # print('avg_log_probs',avg_log_probs.shape,avg_log_probs)  
+        # print('converge',converge[-1].shape)
+        if config.copy:
+            beams_order_converge = self.sort_beams(avg_log_probs, converge[-1], beams_order)
+        else:
+            beams_order_converge = self.sort_beams(avg_log_probs, None, beams_order)
+        # print('beams_order_converge',beams_order_converge)
+        order_log_probs =  avg_log_probs[beams_order] 
+        # -----------------------------sort_hypos-------------------------------------       
+        penalties = ((5.0+(len(self.tokens[0]) + 1)) / 6.0)**alpha 
+        # print(log_probs.shape,T.sum(log_probs, dim=0).shape,T.sum(log_probs, dim=0))
+        decay_prob = [penalties / prob for prob in T.sum(best_scores.squeeze(2),dim=0)]
+        decay_prob = {idx:prob for idx, prob in enumerate(decay_prob)}
+        hyp_order = [k for k,v in sorted(decay_prob.items(), key=lambda item: item[1],reverse=True)]
+        # print('decay_prob',decay_prob,hyp_order)
+        # -------------------------------------------------------------------------------
         #End condition is when top-of-beam is EOS.
         if best_words[0][0] == self.end_id:
             self.done = True
@@ -84,72 +168,56 @@ class Beam(object):
             all_tokens.append(self.tokens[i].cpu().numpy())
         return all_tokens
 
-
 def beam_search(config, batch, model, start_id, end_id, unk_id):
 
     batch_size = config.batch_size
     beam_idx = T.LongTensor(list(range(batch_size)))
-    # print('batch enc_hid',enc_hid[0][0].shape);    
-    # print('batch ct_e',ct_e.shape);  
+
     enc_batch, enc_padding_mask, enc_lens, enc_batch_extend_vocab, extra_zeros, \
-    coverage_t_0, _, _, _, _= get_input_from_batch(batch, config, batch_first = False)
+    coverage_t_0, _, _, _, _= get_input_from_batch(batch, config, batch_first = True)
 
     encoder_outputs, padding_mask = model.encode(enc_batch, enc_padding_mask)
     coverage=(coverage_t_0[0] if config.coverage else None)
 
     # decoder batch preparation, it has beam_size example initially everything is repeated
     beams = [Beam(start_id, end_id, unk_id, coverage) for i in range(batch_size)]   #For each example in batch, create Beam object
-    
     n_rem = batch_size                                                  #Index of beams that are active, i.e: didn't generate [STOP] yet
 
     # print('encoder_outputs',encoder_outputs.shape)
-    for t in range(config.max_dec_steps):
+    for t in range(config.max_dec_steps-1):
+
         # print('---------------------------------------')
         # 將batch中每個beam的元素在第一維度疊加
+        # print([beam.get_current_state(0) for beam in beams if beam.done == False])
         hyp_tokens = T.stack(
-            [beam.get_current_state() for beam in beams if beam.done == False]      #remaining(rem),beam
+            [beam.get_current_state(t+1) for beam in beams if beam.done == False]      #remaining(rem),beam
         )
-        # print(hyp_tokens.shape)
+        if hyp_tokens.shape[0]!= config.batch_size: break   # no more hyp_tokens -STOP
+            
+            
+        hyp_tokens = hyp_tokens.view(config.batch_size, config.beam_size * ( t + 1 ) )
+        
         # hyp_tokens = get_cuda(T.tensor([h.tokens for h in beams])).transpose(0,1) # NOT batch first
-        # hyp_tokens.masked_fill_(hyp_tokens>=config.vocab_size, unk_id)# convert oov to unk
-        
-        # print('beam_x_t',x_t.shape)
-        # x_t = model.embeds(x_t)                                                 #rem*beam, n_emb
-        
-        # ct_e = T.stack(
-        #     [beam.context for beam in beams if beam.done == False]                  #rem,beam,hid_size
-        # ).contiguous().view(-1,2*config.hidden_dim)                                 #rem,beam,hid_size
-
-
-
-        # s_t = (dec_h, dec_c)
-        # enc_out_beam = enc_out[beam_idx].view(n_rem,-1).repeat(1, config.beam_size).view(-1, enc_out.size(1), enc_out.size(2))
-        # enc_pad_mask_beam = enc_padding_mask[beam_idx].repeat(1, config.beam_size).view(-1, enc_padding_mask.size(1))
-
-        # extra_zeros_beam = None
-        # if extra_zeros is not None:
-        #     extra_zeros_beam = extra_zeros[beam_idx].repeat(1, config.beam_size).view(-1, extra_zeros.size(1))
-        # enc_extend_vocab_beam = enc_batch_extend_vocab[beam_idx].repeat(1, config.beam_size).view(-1, enc_batch_extend_vocab.size(1))
+        hyp_tokens.masked_fill_(hyp_tokens>=config.vocab_size, unk_id)# convert oov to unk      
 
         pred, attn = model.decode(hyp_tokens, encoder_outputs, padding_mask, None, \
                                     enc_batch_extend_vocab, extra_zeros)
+        # print('pred',pred.shape)   
+        # print('attn',attn.shape)                                   
 
-        # beam search 在decode時找出final dist機率最大的beam size個單詞
-        # final_dist, (dec_h, dec_c), ct_e, sum_temporal_srcs, prev_s = model.decoder(
-        #     x_t, s_t, enc_out_beam, enc_pad_mask_beam, ct_e, 
-        #     extra_zeros_beam, enc_extend_vocab_beam, sum_temporal_srcs, prev_s, 
-        #     enc_key_batch, enc_key_lens)              #final_dist: rem*beam, n_extended_vocab
+        # advance
+        pred = pred.view(n_rem, ( t + 1 ), config.beam_size , -1)  
+        pred = pred[:, t :  , : , :]
 
-        pred = pred.view(n_rem, config.beam_size, -1)                   #final_dist: rem, beam, n_extended_vocab
-        # dec_h = dec_h.view(n_rem, config.beam_size, -1)                             #rem, beam, hid_size
-        # dec_c = dec_c.view(n_rem, config.beam_size, -1)                             #rem, beam, hid_size
-        # ct_e = ct_e.view(n_rem, config.beam_size, -1)                             #rem, beam, 2*hid_size
+        if config.copy:
+            attn = attn.view(n_rem, ( t + 1 ), config.beam_size , -1)
+            attn = attn[:, t :  , : , :]
+        else:
+            attn = None
+        # pred torch.Size([2, 1, 16, 50001])
+        # attn torch.Size([2, 1, 16, 238])
 
-        # if sum_temporal_srcs is not None:
-        #     sum_temporal_srcs = sum_temporal_srcs.view(n_rem, config.beam_size, -1) #rem, beam, n_seq
-
-        # if prev_s is not None:
-        #     prev_s = prev_s.view(n_rem, config.beam_size, -1, config.hidden_dim)    #rem, beam, t
+        
 
         # For all the active beams, perform beam search
         active = []         #indices of active beams after beam search
@@ -160,12 +228,7 @@ def beam_search(config, batch, model, start_id, end_id, unk_id):
             if beam.done:
                 continue
 
-            # sum_temporal_srcs_i = prev_s_i = None
-            # if sum_temporal_srcs is not None:
-            #     sum_temporal_srcs_i = sum_temporal_srcs[i]                              #beam_size, n_seq
-            # if prev_s is not None:
-            #     prev_s_i = prev_s[i]                                                #beam_size, t, hid_size
-            beam.advance(pred[i])
+            beam.advance(n_rem, pred[i], t+1, converge = (attn[i] if config.copy else None))
             if beam.done == False:
                 active.append(b)
 

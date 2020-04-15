@@ -179,4 +179,5 @@ def getDataLoader(logger, config):
 
     train_loader = DataLoader(train_data, batch_size=config.batch_size, shuffle=True, collate_fn=Collate())      
     validate_loader = DataLoader(validate_data, batch_size=config.batch_size, shuffle=False, collate_fn=Collate())
+    logger.info('train batches : %s, test batches : %s'%(len(iter(train_loader)), len(iter(validate_loader))))
     return train_loader, validate_loader, vocab        
