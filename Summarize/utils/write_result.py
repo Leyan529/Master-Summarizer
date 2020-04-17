@@ -6,6 +6,9 @@ import random
 import warnings
 warnings.filterwarnings(action='ignore', category=UserWarning, module='nltk')
 
+import pandas as pd
+import time
+
 def prepare_result(vocab, batch, pred_ids,rand = False, clean = False):
     decoded_sents = []
     ref_sents = []
@@ -67,40 +70,46 @@ def write_rouge(writer,step,mode,article_sents, decoded_sents, keywords_list, re
                 'p': score['rouge-l']['p'],
                 'r': score['rouge-l']['r']}
                 , step)
-    return score['rouge-l']['f']
+    return score['rouge-1']['f'], score['rouge-2']['f'], score['rouge-l']['f']
     
 def write_group(writer,step,mode,article_sents, decoded_sents, keywords_list, ref_sents, long_seq_index):
-    writer.add_text('Group/%s/%s' % (step,mode), 
+    writer.add_text('Compose/%s/%s' % (step,mode), 
                     "### decoded : &nbsp;&nbsp;&nbsp;\
                     %s" % (decoded_sents[long_seq_index]), step)
-    writer.add_text('Group/%s/%s' % (step,mode), 
+    writer.add_text('Compose/%s/%s' % (step,mode), 
                     "### keywords : &nbsp;&nbsp;&nbsp;\
                     " + keywords_list[long_seq_index], step)
-    writer.add_text('Group/%s/%s' % (step,mode), 
+    writer.add_text('Compose/%s/%s' % (step,mode), 
                     "### ref_summary : &nbsp;&nbsp;&nbsp;\
                     " + ref_sents[long_seq_index], step)
-    writer.add_text('Group/%s/%s' % (step,mode), 
+    writer.add_text('Compose/%s/%s' % (step,mode), 
                     "### review : &nbsp;&nbsp;&nbsp;\
                     " + article_sents[long_seq_index], step)        
 
-def write_bleu(writer,step, mode, article_sents, decoded_sents, keywords_list, ref_sents, long_seq_index):
+def write_bleu(writer,step, mode, article_sents, decoded_sents, keywords_list, ref_sents, long_seq_index, write=True):
         
     bleu_decode_sents = [decode.split(" ") for decode in decoded_sents]
     bleu_ref_sents = [[ref.split(" ")] for ref in ref_sents]
-
-    writer.add_scalars('%s/BLEU' % mode,  
-            {'BLEU-1': corpus_bleu(bleu_ref_sents,bleu_decode_sents, weights=(1, 0, 0, 0)),
-            'BLEU-2': corpus_bleu(bleu_ref_sents,bleu_decode_sents, weights=(0, 1, 0, 0)),
-            'BLEU-3': corpus_bleu(bleu_ref_sents,bleu_decode_sents, weights=(0, 0, 1, 0)),
-            'BLEU-4': corpus_bleu(bleu_ref_sents,bleu_decode_sents, weights=(0, 0, 0, 1))}
-            , step)
+    Bleu_1 = corpus_bleu(bleu_ref_sents,bleu_decode_sents, weights=(1, 0, 0, 0))
+    Bleu_2 = corpus_bleu(bleu_ref_sents,bleu_decode_sents, weights=(0, 1, 0, 0))
+    Bleu_3 = corpus_bleu(bleu_ref_sents,bleu_decode_sents, weights=(0, 0, 1, 0))
+    Bleu_4 = corpus_bleu(bleu_ref_sents,bleu_decode_sents, weights=(0, 0, 0, 1))
+    if write:
+        writer.add_scalars('%s/BLEU' % mode,  
+                {'BLEU-1': Bleu_1,
+                'BLEU-2': Bleu_2,
+                'BLEU-3': Bleu_3,
+                'BLEU-4': Bleu_4}
+                , step)
+        
+        # writer.add_scalars('%s/Cumulative' % mode,  # 'rouge-2' , 'rouge-l'
+        #         {'BLEU-1': corpus_bleu(bleu_ref_sents,bleu_decode_sents, weights=(1, 0, 0, 0)),
+        #         'BLEU-2': corpus_bleu(bleu_ref_sents,bleu_decode_sents, weights=(0.5, 0.5, 0, 0)),
+        #         'BLEU-3': corpus_bleu(bleu_ref_sents,bleu_decode_sents, weights=(0.33, 0.33, 0.33, 0)),
+        #         'BLEU-4': corpus_bleu(bleu_ref_sents,bleu_decode_sents, weights=(0.25, 0.25, 0.25, 0.25))}
+        #         , step)
+    return Bleu_1, Bleu_2, Bleu_3, Bleu_4
     
-#     writer.add_scalars('%s/Cumulative' % mode,  # 'rouge-2' , 'rouge-l'
-#             {'BLEU-1': corpus_bleu(bleu_ref_sents,bleu_decode_sents, weights=(1, 0, 0, 0)),
-#             'BLEU-2': corpus_bleu(bleu_ref_sents,bleu_decode_sents, weights=(0.5, 0.5, 0, 0)),
-#             'BLEU-3': corpus_bleu(bleu_ref_sents,bleu_decode_sents, weights=(0.33, 0.33, 0.33, 0)),
-#             'BLEU-4': corpus_bleu(bleu_ref_sents,bleu_decode_sents, weights=(0.25, 0.25, 0.25, 0.25))}
-#             , step)
 def write_scalar(writer, logger, step, train_rouge_l_f, test_rouge_l_f):
     writer.add_scalars('scalar/Rouge-L',  
                {'train_rouge_l_f': train_rouge_l_f,
@@ -110,12 +119,48 @@ def write_scalar(writer, logger, step, train_rouge_l_f, test_rouge_l_f):
     #             % (step, train_rouge_l_f, test_rouge_l_f))
     
 def write_train_para(writer, exp_config):
-    info_str = ''
+    data_paras = ['data_type', 'batch_size','beam_size',
+    'key_attention','max_key_num','keywords','vocab_size',
+    'pre_train_emb','word_emb_type']
+    data_info_str = ""
+
+    transformer_paras = ['copy', 'coverage']
+    pg_paras = ['intra_decoder', 'intra_encoder','eps',
+    'gound_truth_prob','trunc_norm_init_std','rand_unif_init_mag']
+    model_paras = ['emb_dim','hidden_dim','emb_grad']
+    model_info_str = ""
+    transformer_info_str = ""
+    pg_info_str = ""
+
+    train_paras = ['lr', 'max_dec_steps','min_dec_steps',
+    'max_enc_steps','max_epochs','mle_weight','rl_weight',
+    'train_rl']
+    train_info_str = ""
+
     for a in dir(exp_config):
         if type(getattr(exp_config, a)) in [str,int,float,bool] \
         and 'path' not in str(a) \
         and '__' not in str(a) \
         and 'info' not in str(a):
-            info_str += '## %s : %s\n'%(a,getattr(exp_config, a))
+            if a in data_paras:
+                data_info_str += '## %s : %s\n'%(a,getattr(exp_config, a))
+            if a in (transformer_paras + pg_paras + model_paras):
+                if a in transformer_paras:
+                    transformer_info_str += '## %s : %s\n'%(a,getattr(exp_config, a))
+                if a in pg_paras:
+                    pg_info_str += '## %s : %s\n'%(a,getattr(exp_config, a))
+                if a in model_paras:
+                    model_info_str += '## %s : %s\n'%(a,getattr(exp_config, a))
+            if a in train_paras:
+                train_info_str += '## %s : %s\n'%(a,getattr(exp_config, a))
+            
+                 
 
-    writer.add_text('Parameters',info_str,0)
+    if not getattr(exp_config, 'transformer'):
+        model_info_str = model_info_str + pg_info_str
+    else:
+        model_info_str = model_info_str + transformer_info_str
+
+    writer.add_text('Data-Parameters',data_info_str,0)
+    writer.add_text('Model-Parameters',model_info_str,0)
+    writer.add_text('Train-Parameters',train_info_str,0)

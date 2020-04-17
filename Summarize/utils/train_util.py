@@ -39,9 +39,6 @@ def re_config(opt):
     config.train_rl = opt.train_rl
     config.load_ckpt = opt.load_ckpt
     
-    config.word_emb_path = config.Data_path + "Embedding/%s/%s.%sd.txt"%(config.word_emb_type,config.word_emb_type,config.emb_dim)
-    config.vocab_path = config.Data_path + 'Embedding/%s/word.vocab'%(config.word_emb_type)
-    
     config.gound_truth_prob = opt.gound_truth_prob
     config.hidden_dim = opt.hidden_dim
     config.emb_dim = opt.emb_dim
@@ -50,6 +47,9 @@ def re_config(opt):
     config.beam_size = opt.beam_size
     config.transformer = opt.transformer
     config.batch_size = opt.batch_size
+
+    config.word_emb_path = config.Data_path + "Embedding/%s/%s.%sd.txt"%(config.word_emb_type,config.word_emb_type,config.emb_dim)
+    config.vocab_path = config.Data_path + 'Embedding/%s/word.vocab'%(config.word_emb_type)
     #------------------------------------------
     # config.copy = False
     # config.coverage = True
