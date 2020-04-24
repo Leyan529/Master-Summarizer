@@ -198,7 +198,10 @@ def get_init_embedding(config, vocab):
 #     return model, optimizer
 
 def loadCheckpoint(logger, load_model_path, model, optimizer):    
-    checkpoint = T.load(load_model_path, map_location='cpu')
+    # checkpoint = T.load(load_model_path, map_location='cpu')
+    T.backends.cudnn.benchmark = True 
+
+    checkpoint = T.load(load_model_path)
     model.load_state_dict(checkpoint['model'])
     step = checkpoint['step']
     vocab = checkpoint['vocab']

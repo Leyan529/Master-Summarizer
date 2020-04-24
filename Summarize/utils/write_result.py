@@ -28,11 +28,11 @@ def prepare_result(vocab, batch, pred_ids,rand = False, clean = False):
             decoded_words = " ".join(decoded_words)
         if clean : 
             decoded_words = decoded_words.replace("[UNK]","")
-        decoded_sents.append(decoded_words)
-        summary = batch.original_abstract[i]
+        decoded_sents.append(decoded_words.strip())
+        summary = batch.original_abstract[i].strip()
         if clean :  
             summary = summary.replace("<s>","").replace("</s>","")
-        review = batch.original_article[i]
+        review = batch.original_article[i].strip()
         ref_sents.append(summary)
         article_sents.append(review) 
         keywords = batch.key_words[i]
@@ -156,7 +156,7 @@ def write_train_para(writer, exp_config):
             
                  
 
-    if not getattr(exp_config, 'transformer'):
+    if getattr(exp_config, 'model_type') == 'seq2seq':
         model_info_str = model_info_str + pg_info_str
     else:
         model_info_str = model_info_str + transformer_info_str

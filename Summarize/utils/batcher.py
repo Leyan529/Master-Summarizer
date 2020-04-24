@@ -42,8 +42,8 @@ def pad_sequence3(data, padding_idx=0, length = 0):
 class Example:
     def __init__(self, config, vocab, data):        
 
-        article = data['review']
-        abstract = data['summary'].replace("<s>","").replace("</s>","")
+        article = data['review'].strip()
+        abstract = data['summary'].strip().replace("<s>","").replace("</s>","")
 #         keywords = data['POS_FOP_keywords']       
         keywords = data[config.keywords]
 
@@ -61,8 +61,8 @@ class Example:
             # 改写目标输出 反映COPY OOV
             _, self.dec_tgt = self.get_dec_inp_tgt(config, abs_extend_vocab, config.max_dec_steps)
 
-        self.original_article = article
-        self.original_abstract = abstract
+        self.original_article = article.strip()
+        self.original_abstract = abstract.strip()
 # -----------------------------------------------------------------------------------------------------        
         key_words = keywords.split()
         key_words = [word for word in key_words if word in vocab._word2id.keys()] # 過濾不在vocabulary 的 keyword
@@ -124,10 +124,12 @@ class Batch:
 
         # print('max dec_inp',max([len(b) for b in self.dec_inp]))
         # print('max dec_tgt',max([len(b) for b in self.dec_tgt]))
-        # true為mask掉 false則沒有,按照慣例後面為true
-        self.enc_pad_mask = self.enc_inp.eq(PAD)
-        self.dec_pad_mask = self.dec_inp.eq(PAD)
-        self.key_pad_mask = self.key_inp.eq(PAD)
+        # true為mask掉 false則沒有,按照慣例後面為true        
+        
+        # 新架構PreSum版本
+        self.enc_pad_mask = ~self.enc_inp.eq(PAD)
+        self.dec_pad_mask = ~self.dec_inp.eq(PAD)
+        self.key_pad_mask = ~self.key_inp.eq(PAD)
         # print(self.enc_pad_mask[0][-10:-1])
         # print(self.dec_pad_mask[0][:])
         # print(self.key_pad_mask[0][:])
@@ -166,7 +168,9 @@ def getDataLoader(logger, config):
     # 新的資料包裝方式
     vocab = Vocab(config.vocab_path, config.vocab_size)
 
-    train_df, val_df = train_test_split(pd.read_excel(config.xls_path),test_size=0.1, 
+    total_df = pd.read_excel(config.xls_path)
+    # total_df = total_df.sort_values(by=['lemm_review_len','overlap'], ascending = False)
+    train_df, val_df = train_test_split(total_df, test_size=0.1, 
                                         random_state=0, shuffle=True)
     logger.info('train : %s, test : %s'%(len(train_df), len(val_df)))
     train_df = train_df.sort_values(by=['lemm_review_len'])
@@ -177,7 +181,7 @@ def getDataLoader(logger, config):
 
     # class torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False, sampler=None, num_workers=0, collate_fn=<function default_collate>, pin_memory=False, drop_last=False)
 
-    train_loader = DataLoader(train_data, batch_size=config.batch_size, shuffle=True, collate_fn=Collate())      
-    validate_loader = DataLoader(validate_data, batch_size=config.batch_size, shuffle=False, collate_fn=Collate())
+    train_loader = DataLoader(train_data, batch_size=config.batch_size, shuffle=True, collate_fn=Collate(), drop_last=True)      
+    validate_loader = DataLoader(validate_data, batch_size=config.batch_size, shuffle=False, collate_fn=Collate(), drop_last=True)
     logger.info('train batches : %s, test batches : %s'%(len(iter(train_loader)), len(iter(validate_loader))))
-    return train_loader, validate_loader, vocab        
+    return train_loader, validate_loader, vocab
