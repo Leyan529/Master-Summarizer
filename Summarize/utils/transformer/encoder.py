@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 
 from utils.transformer.neural import MultiHeadedAttention, PositionwiseFeedForward
-
+from utils.bert.train_util import get_cuda
 
 class Classifier(nn.Module):
     def __init__(self, hidden_size):
@@ -35,6 +35,7 @@ class PositionalEncoding(nn.Module):
 
     def forward(self, emb, step=None):
         emb = emb * math.sqrt(self.dim)
+        # print('step',step)
         if (step):
             emb = emb + self.pe[:, step][:, None, :]
 
@@ -46,6 +47,29 @@ class PositionalEncoding(nn.Module):
     def get_emb(self, emb):
         return self.pe[:, :emb.size(1)]
 
+class LearnedPositionalEmbedding(nn.Module):
+    """
+        This module produces LearnedPositionalEmbedding.
+    """
+    def __init__(self, dropout, dim, max_len=405):
+        super(LearnedPositionalEmbedding, self).__init__()
+        self.weights = nn.Embedding(max_len, dim)   # nn.embedding 默认finetune
+        self.reset_parameters    
+        self.dropout = nn.Dropout(p=dropout)
+        self.dim = dim
+
+    def reset_parameters(self):
+        """ 跟词向量采用了相同的初始化方式...! """
+        nn.init.normal_(self.weights.weight, std=0.02)
+
+    def forward(self, inputs, offset=0):
+        """Input is expected to be of size [seq_len x b_sz]."""
+        b_sz, seq_len, _ = inputs.size()
+        if offset == None: offset = 0
+        positions = get_cuda((offset + torch.arange(seq_len)))
+        res = self.weights(positions).unsqueeze(0).expand(b_sz, -1, -1)
+        res = self.dropout(inputs + res)
+        return res
 
 class TransformerEncoderLayer(nn.Module):
     def __init__(self, d_model, heads, d_ff, dropout):

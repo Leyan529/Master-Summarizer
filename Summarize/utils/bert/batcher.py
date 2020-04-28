@@ -65,8 +65,8 @@ class Example:
         else:
             self.dec_inp, self.dec_tgt = abs_ids, abs_ids
 
-        self.art_extend_vocab, self.art_oovs = article2ids(article.split(' '), config.vocab)
-        abs_extend_vocab = abstract2ids(abstract.split(' '), vocab, self.art_oovs)
+        self.art_extend_vocab, self.art_oovs = article2ids(src_subtokens, config.vocab)
+        abs_extend_vocab = abstract2ids(tgt_subtoken, vocab, self.art_oovs)
 
         if config.model_type == 'seq2seq' and config.copy:      
             # 改写目标输出 反映COPY OOV

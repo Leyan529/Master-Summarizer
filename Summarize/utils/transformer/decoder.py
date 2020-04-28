@@ -6,12 +6,12 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-from utils.transformer.encoder import PositionalEncoding
+from utils.transformer.encoder import PositionalEncoding, LearnedPositionalEmbedding
 from utils.transformer.neural import MultiHeadedAttention, PositionwiseFeedForward, DecoderState
 
 MAX_SIZE = 5000
 
-
+from copy import deepcopy
 class TransformerDecoderLayer(nn.Module):
     """
     Args:
@@ -74,7 +74,7 @@ class TransformerDecoderLayer(nn.Module):
             all_input = torch.cat((previous_input, input_norm), dim=1)
             dec_mask = None
 
-        query = self.self_attn(all_input, all_input, input_norm,
+        query,_ = self.self_attn(all_input, all_input, input_norm,
                                      mask=dec_mask,
                                      layer_cache=layer_cache,
                                      type="self")
@@ -82,13 +82,13 @@ class TransformerDecoderLayer(nn.Module):
         query = self.drop(query) + inputs
 
         query_norm = self.layer_norm_2(query)
-        mid = self.context_attn(memory_bank, memory_bank, query_norm,
+        mid, attn_weights = self.context_attn(memory_bank, memory_bank, query_norm,
                                       mask=src_pad_mask,
                                       layer_cache=layer_cache,
                                       type="context")
         output = self.feed_forward(self.drop(mid) + query)
 
-        return output, all_input
+        return output, all_input, attn_weights
         # return output
 
     def _get_attn_subsequent_mask(self, size):
@@ -147,7 +147,10 @@ class TransformerDecoder(nn.Module):
         self.decoder_type = 'transformer'
         self.num_layers = num_layers
         self.embeddings = embeddings
+        '''PositionalEncoding'''
         self.pos_emb = PositionalEncoding(dropout,self.embeddings.embedding_dim)
+        '''LearnedPositionalEmbedding'''
+        # self.pos_emb = LearnedPositionalEmbedding(dropout, self.embeddings.embedding_dim)
 
 
         # Build TransformerDecoder.
@@ -173,7 +176,8 @@ class TransformerDecoder(nn.Module):
         emb = self.embeddings(tgt)
         assert emb.dim() == 3  # len x batch x embedding_dim
 
-        output = self.pos_emb(emb, step)
+        output = self.pos_emb(emb, step) # sum of embedding
+        pure_emb = output
 
         src_memory_bank = memory_bank
         padding_idx = self.embeddings.padding_idx
@@ -196,7 +200,7 @@ class TransformerDecoder(nn.Module):
             if state.cache is None:
                 if state.previous_input is not None:
                     prev_layer_input = state.previous_layer_inputs[i]
-            output, all_input \
+            output, all_input, attn_weights \
                 = self.transformer_layers[i](
                     output, src_memory_bank,
                     src_pad_mask, tgt_pad_mask,
@@ -217,7 +221,7 @@ class TransformerDecoder(nn.Module):
         if state.cache is None:
             state = state.update_state(tgt, saved_inputs)
 
-        return output, state
+        return output, state, pure_emb, attn_weights
 
     def init_decoder_state(self, src, memory_bank,
                            with_cache=False):

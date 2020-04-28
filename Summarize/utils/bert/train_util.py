@@ -45,10 +45,12 @@ def getName(config):
 
     else:
         loggerName = 'Transformer_%s' % (config.word_emb_type)
-        if config.use_bert_emb:
-            loggerName = 'Bert_' + loggerName
+        if config.encoder == 'bert':
+            loggerName = 'BertEnc_' + loggerName
         if config.sep_optim:
             loggerName = 'Sep_' + loggerName
+        if config.copy:
+            loggerName = 'Copy_' + loggerName
 
     model_name = ''
     if config.model_type == 'seq2seq':
@@ -59,16 +61,17 @@ def getName(config):
             model_name = model_name + '_Key_Atten'
     else:
         model_name = model_name + 'Transformer'
-        if config.use_bert_emb:
-            model_name = 'Bert_' + model_name
+        if config.encoder == 'bert':
+            model_name = 'BertEnc_' + model_name
         if config.sep_optim:
             model_name = 'Sep_' + model_name
-
+        if config.copy:
+            model_name = 'Copy_' + model_name
     if config.train_rl:
         loggerName = loggerName + '_RL'
         model_name = model_name + '_RL'
 
-    if config.encoder == 'bert':
+    if config.encoder == 'bert' and config.use_bert_emb :
         loggerName = loggerName.replace(config.word_emb_type,'Bert')
         writerPath = 'runs/%s/%s/%s/exp'% (config.data_type, model_name,'Bert')
     else:

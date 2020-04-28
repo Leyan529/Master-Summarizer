@@ -282,7 +282,7 @@ class MultiHeadedAttention(nn.Module):
 
     def __init__(self, head_count, model_dim, dropout=0.1, use_final_linear=True):
         assert model_dim % head_count == 0
-        self.dim_per_head = model_dim // head_count
+        self.dim_per_head = model_dim // head_count  # 維度被每個head 均分
         self.model_dim = model_dim
 
         super(MultiHeadedAttention, self).__init__()
@@ -344,12 +344,12 @@ class MultiHeadedAttention(nn.Module):
         key_len = key.size(1)
         query_len = query.size(1)
 
-        def shape(x):
+        def proj(x):
             """  projection """
             return x.view(batch_size, -1, head_count, dim_per_head) \
                 .transpose(1, 2)
 
-        def unshape(x):
+        def context_proj(x):
             """  compute context """
             return x.transpose(1, 2).contiguous() \
                 .view(batch_size, -1, head_count * dim_per_head)
@@ -361,8 +361,8 @@ class MultiHeadedAttention(nn.Module):
                                     self.linear_keys(query), \
                                     self.linear_values(query)
 
-                key = shape(key)
-                value = shape(value)
+                key = proj(key)
+                value = proj(value)
 
                 if layer_cache is not None:
                     device = key.device
@@ -382,8 +382,8 @@ class MultiHeadedAttention(nn.Module):
                     if layer_cache["memory_keys"] is None:
                         key, value = self.linear_keys(key), \
                                      self.linear_values(value)
-                        key = shape(key)
-                        value = shape(value)
+                        key = proj(key)
+                        value = proj(value)
                     else:
                         key, value = layer_cache["memory_keys"], \
                                      layer_cache["memory_values"]
@@ -392,16 +392,16 @@ class MultiHeadedAttention(nn.Module):
                 else:
                     key, value = self.linear_keys(key), \
                                  self.linear_values(value)
-                    key = shape(key)
-                    value = shape(value)
+                    key = proj(key)
+                    value = proj(value)
         else:
             key = self.linear_keys(key)
             value = self.linear_values(value)
             query = self.linear_query(query)
-            key = shape(key)
-            value = shape(value)
+            key = proj(key)
+            value = proj(value)
 
-        query = shape(query)
+        query = proj(query)
 
         key_len = key.size(2)
         query_len = query.size(2)
@@ -409,29 +409,42 @@ class MultiHeadedAttention(nn.Module):
         # 2) Calculate and scale scores.
         query = query / math.sqrt(dim_per_head)
         scores = torch.matmul(query, key.transpose(2, 3))
+        '''
+        dim_per_head = model_dim / head_count
 
+        key [bsz, head, tgt_len, dim_per_head]
+        query [bsz, head, tgt_len, dim_per_head]
+        value [bsz, head, tgt_len, dim_per_head]
+        '''
         if mask is not None:
+            '''
+            mask [bsz, tgt_len, tgt_len]
+            scores [bsz, head, tgt_len, tgt_len]
+            '''
             mask = mask.unsqueeze(1).expand_as(scores)
             scores = scores.masked_fill(mask, -1e18)
 
         # 3) Apply attention dropout and compute context vectors.
 
-        attn = self.softmax(scores)
+        attn_weights = self.softmax(scores)   # attn_weights
 
         if (not predefined_graph_1 is None):
-            attn_masked = attn[:, -1] * predefined_graph_1
+            attn_masked = attn_weights[:, -1] * predefined_graph_1
             attn_masked = attn_masked / (torch.sum(attn_masked, 2).unsqueeze(2) + 1e-9)
 
-            attn = torch.cat([attn[:, :-1], attn_masked.unsqueeze(1)], 1)
+            attn_weights = torch.cat([attn_weights[:, :-1], attn_masked.unsqueeze(1)], 1)
 
-        drop_attn = self.dropout(attn)
+        drop_attn = self.dropout(attn_weights)
         if (self.use_final_linear):
-            context = unshape(torch.matmul(drop_attn, value))
+            # 對value 進行加權得context vector [bsz, tgt, emb_dim]
+            context = context_proj(torch.matmul(drop_attn, value)) 
             output = self.final_linear(context)
-            return output
+            # return output
+            return output, attn_weights
         else:
             context = torch.matmul(drop_attn, value)
-            return context
+            # return context
+            return context, attn_weights
 
         # CHECK
         # batch_, q_len_, d_ = output.size()

@@ -71,7 +71,7 @@ class Translator(object):
 
         self.args = args
         self.model = model
-        self.generator = self.model.generator
+        # self.generator = self.model.generator
         self.vocab = vocab
         self.symbols = symbols
         self.start_token = symbols['BOS']
@@ -128,99 +128,19 @@ class Translator(object):
             pred_sents_list = self.vocab.convert_ids_to_tokens([int(n) for n in preds[b][0]])
             pred_sents = ' '.join(pred_sents_list).replace(' ##','')
             gold_sent = ' '.join(tgt_str[b].split())
-            # translation = Translation(fname[b],src[:, b] if src is not None else None,
-            #                           src_raw, pred_sents,
-            #                           attn[b], pred_score[b], gold_sent,
-            #                           gold_score[b])
-            # src = self.spm.DecodeIds([int(t) for t in translation_batch['batch'].src[0][5] if int(t) != len(self.spm)])
+            
             raw_src = [self.vocab.ids_to_tokens[int(t)] for t in src[b]][:500]
             raw_src = ' '.join(raw_src)
+            pred_sents = pred_sents.replace('[unused0]', '').replace('[unused3]', '').replace('[PAD]', '').replace('[unused1]', '').replace(r' +', ' ').replace(' [unused2] ', '<q>').replace('[unused2]', '').strip()
+
             translation = (pred_sents, gold_sent, raw_src)
-            # translation = (pred_sents[0], gold_sent)
+            # print('src :',raw_src)
+            # print('gold_sent :',gold_sent)
+            # print('pred_sents :',pred_sents)
+            # print('--------------------------------------------------')
             translations.append(translation)
 
         return translations
-
-    def translate(self,
-                  data_iter, step,
-                  attn_debug=False):
-
-        self.model.eval()
-        gold_path = self.args.result_path + '.%d.gold' % step
-        can_path = self.args.result_path + '.%d.candidate' % step
-        self.gold_out_file = codecs.open(gold_path, 'w', 'utf-8')
-        self.can_out_file = codecs.open(can_path, 'w', 'utf-8')
-
-        # raw_gold_path = self.args.result_path + '.%d.raw_gold' % step
-        # raw_can_path = self.args.result_path + '.%d.raw_candidate' % step
-        self.gold_out_file = codecs.open(gold_path, 'w', 'utf-8')
-        self.can_out_file = codecs.open(can_path, 'w', 'utf-8')
-
-        raw_src_path = self.args.result_path + '.%d.raw_src' % step
-        self.src_out_file = codecs.open(raw_src_path, 'w', 'utf-8')
-
-        # pred_results, gold_results = [], []
-        ct = 0
-        with torch.no_grad():
-            for batch in data_iter:
-                if(self.args.recall_eval):
-                    gold_tgt_len = batch.tgt.size(1)
-                    self.min_length = gold_tgt_len + 20
-                    self.max_length = gold_tgt_len + 60
-                batch_data = self.translate_batch(batch)
-                translations = self.from_batch(batch_data)
-
-                for trans in translations:
-                    pred, gold, src = trans
-                    pred_str = pred.replace('[unused0]', '').replace('[unused3]', '').replace('[PAD]', '').replace('[unused1]', '').replace(r' +', ' ').replace(' [unused2] ', '<q>').replace('[unused2]', '').strip()
-                    gold_str = gold.strip()
-                    if(self.args.recall_eval):
-                        _pred_str = ''
-                        gap = 1e3
-                        for sent in pred_str.split('<q>'):
-                            can_pred_str = _pred_str+ '<q>'+sent.strip()
-                            can_gap = math.fabs(len(_pred_str.split())-len(gold_str.split()))
-                            # if(can_gap>=gap):
-                            if(len(can_pred_str.split())>=len(gold_str.split())+10):
-                                pred_str = _pred_str
-                                break
-                            else:
-                                gap = can_gap
-                                _pred_str = can_pred_str
-
-
-
-                        # pred_str = ' '.join(pred_str.split()[:len(gold_str.split())])
-                    # self.raw_can_out_file.write(' '.join(pred).strip() + '\n')
-                    # self.raw_gold_out_file.write(' '.join(gold).strip() + '\n')
-                    self.can_out_file.write(pred_str + '\n')
-                    self.gold_out_file.write(gold_str + '\n')
-                    self.src_out_file.write(src.strip() + '\n')
-                    print('src :',src)
-                    print('gold_str :',gold_str)
-                    print('pred_str :',pred_str)
-                    print('--------------------------------------------------')
-                    ct += 1
-                self.can_out_file.flush()
-                self.gold_out_file.flush()
-                self.src_out_file.flush()
-
-        self.can_out_file.close()
-        self.gold_out_file.close()
-        self.src_out_file.close()
-
-        if (step != -1):
-            rouges = self._report_rouge(gold_path, can_path)
-            self.logger.info('Rouges at step %d \n%s' % (step, rouge_results_to_str(rouges)))
-            if self.tensorboard_writer is not None:
-                self.tensorboard_writer.add_scalar('test/rouge1-F', rouges['rouge_1_f_score'], step)
-                self.tensorboard_writer.add_scalar('test/rouge2-F', rouges['rouge_2_f_score'], step)
-                self.tensorboard_writer.add_scalar('test/rougeL-F', rouges['rouge_l_f_score'], step)
-
-    def _report_rouge(self, gold_path, can_path):
-        self.logger.info("Calculating Rouge")
-        results_dict = test_rouge(self.args.temp_dir, can_path, gold_path)
-        return results_dict
 
     def translate_batch(self, batch, fast=False):
         """
@@ -252,10 +172,13 @@ class Translator(object):
         assert not self.dump_beam
 
         beam_size = self.beam_size
+        
         batch_size = batch.src.size(0)
         src = batch.src
         segs = batch.segs
         mask_src = batch.mask_src
+        extra_zeros = get_cuda(torch.zeros((batch_size, 1, batch.max_art_oovs), requires_grad=False))
+        src_extend_vocab = get_cuda(batch.art_batch_extend_vocab)
 
         src_features = self.model.encoder(src, segs, mask_src)
         dec_states = self.model.decoder.init_decoder_state(src, src_features, with_cache=True)
@@ -265,6 +188,9 @@ class Translator(object):
         dec_states.map_batch_fn(
             lambda state, dim: tile(state, beam_size, dim=dim))
         src_features = tile(src_features, beam_size, dim=0)
+        extra_zeros = tile(extra_zeros, beam_size, dim=0)
+        src_extend_vocab = tile(src_extend_vocab, beam_size, dim=0)
+
         batch_offset = get_cuda(torch.arange(
             batch_size, dtype=torch.long))
         beam_offset = get_cuda(torch.arange(
@@ -297,13 +223,16 @@ class Translator(object):
 
             # Decoder forward.
             decoder_input = decoder_input.transpose(0,1)
-
-            dec_out, dec_states = self.model.decoder(decoder_input, src_features, dec_states,
+            # --------------------------------------------------------------------------------
+            dec_out, dec_states, dec_emb, last_dec_mid = self.model.decoder(decoder_input, src_features, dec_states,
                                                      step=step)
-            # print('dec_out',dec_out.shape)
-            # print('dec_states',dec_states)
+            log_probs, check_attn = self.model.word_prob(dec_out.transpose(0,1).squeeze(0),
+                dec_emb.transpose(0,1).squeeze(0), last_dec_mid, 
+                src_features, extra_zeros.transpose(0,1).squeeze(0),
+                src_extend_vocab, is_predict = True
+            )
+            # --------------------------------------------------------------------------------
             # Generator forward.
-            log_probs = self.generator.forward(dec_out.transpose(0,1).squeeze(0))
             vocab_size = log_probs.size(-1)
 
             if step < min_length:
@@ -400,54 +329,3 @@ class Translator(object):
 
         return results
 
-
-class Translation(object):
-    """
-    Container for a translated sentence.
-
-    Attributes:
-        src (`LongTensor`): src word ids
-        src_raw ([str]): raw src words
-
-        pred_sents ([[str]]): words from the n-best translations
-        pred_scores ([[float]]): log-probs of n-best translations
-        attns ([`FloatTensor`]) : attention dist for each translation
-        gold_sent ([str]): words from gold translation
-        gold_score ([float]): log-prob of gold translation
-
-    """
-
-    def __init__(self, fname, src, src_raw, pred_sents,
-                 attn, pred_scores, tgt_sent, gold_score):
-        self.fname = fname
-        self.src = src
-        self.src_raw = src_raw
-        self.pred_sents = pred_sents
-        self.attns = attn
-        self.pred_scores = pred_scores
-        self.gold_sent = tgt_sent
-        self.gold_score = gold_score
-
-    def log(self, sent_number):
-        """
-        Log translation.
-        """
-
-        output = '\nSENT {}: {}\n'.format(sent_number, self.src_raw)
-
-        best_pred = self.pred_sents[0]
-        best_score = self.pred_scores[0]
-        pred_sent = ' '.join(best_pred)
-        output += 'PRED {}: {}\n'.format(sent_number, pred_sent)
-        output += "PRED SCORE: {:.4f}\n".format(best_score)
-
-        if self.gold_sent is not None:
-            tgt_sent = ' '.join(self.gold_sent)
-            output += 'GOLD {}: {}\n'.format(sent_number, tgt_sent)
-            output += ("GOLD SCORE: {:.4f}\n".format(self.gold_score))
-        if len(self.pred_sents) > 1:
-            output += '\nBEST HYP:\n'
-            for score, sent in zip(self.pred_scores, self.pred_sents):
-                output += "[{:.4f}] {}\n".format(score, sent)
-
-        return output
