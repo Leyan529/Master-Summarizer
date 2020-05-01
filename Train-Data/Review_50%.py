@@ -95,8 +95,8 @@ elif mode == 'main_cat':
     folder = main_cat
     key = mongoObj.getReviewKey()
 elif mode == 'mixCat':   
-    # mongoObj = Mix6()
-    mongoObj = Mix12()
+    mongoObj = Mix6()
+    # mongoObj = Mix10()
     
     main_cat = mongoObj.getAttr()
     print("make data dict from Mix cat : %s " % (main_cat))
@@ -344,7 +344,6 @@ def make_orign_rev_xlsx():
             asin, review, overall, vote, summary, review_ID = rev["asin"], rev["reviewText"], rev['overall'], rev['vote'], rev['summary'], str(rev['unixReviewTime'])       
             if mode == 'mixCat' :
                 if len(summary.split(" ")) < 6: continue
-                if len(review.split(" ")) < 50: continue
             asin_list.append(asin)
             review_list.append(review)
             overall_list.append(overall)
@@ -636,7 +635,7 @@ df = df[(df.lemm_review_len >= 20) ] # 過濾single word summary
 
 df = df.reset_index(drop=True)
 
-csv_path = '%s/pro_review.xlsx'%(folder)   
+csv_path = '%s/pro_review_50per.xlsx'%(folder)   
 if not os.path.exists(csv_path):
     with tqdm(total=len(df)) as pbar:
         j = 0
@@ -673,7 +672,7 @@ if not os.path.exists(csv_path):
             cheat_num = len(cheat)
 
             overlap = len(rev_token_set & summ_token_set)
-            # if len(rev_token_set & summ_token_set) > 0.7*(len(summ_token_set)) : continue # => 避免過高重疊
+            if len(rev_token_set & summ_token_set) > 0.5*(len(summ_token_set)) : continue # => 避免過高重疊
             
 
             # FOP_keywords
@@ -722,7 +721,7 @@ if not os.path.exists(csv_path):
             j = j + 1
 
             pbar.update(1)
-            pbar.set_description("%s pro review" % (folder))
+            pbar.set_description("%s pro review 50 percent" % (folder))
 
         pro_df = pd.DataFrame.from_dict(pro_df, orient='index')
         pro_df.to_excel(csv_path, encoding='utf8')
