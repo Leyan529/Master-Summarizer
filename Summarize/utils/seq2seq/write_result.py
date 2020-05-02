@@ -1,5 +1,8 @@
 from rouge import Rouge
 from nltk.translate.bleu_score import corpus_bleu
+from nltk.translate.bleu_score import sentence_bleu
+from nltk.translate.meteor_score import single_meteor_score
+
 from utils.seq2seq.data import output2words
 import random
 
@@ -164,3 +167,133 @@ def write_train_para(writer, exp_config):
     writer.add_text('Data-Parameters',data_info_str,0)
     writer.add_text('Model-Parameters',model_info_str,0)
     writer.add_text('Train-Parameters',train_info_str,0)
+
+def total_evaulate(article_sents, keywords_list, decoded_sents, ref_sents):
+    overlap = [len(set(article_sents[i].split(" ")) & set(ref_sents[i].split(" "))) for i in range(len(article_sents))]
+    too_overlap = [overlap[i] > len(set(ref_sents[i].split(" ")))-3 for i in range(len(article_sents))]
+    rouge = Rouge() 
+    scores = rouge.get_scores(decoded_sents, ref_sents, avg = False)
+    rouge_1 = [score['rouge-1']['f'] for score in scores]
+    rouge_2 = [score['rouge-2']['f'] for score in scores]
+    rouge_l = [score['rouge-l']['f'] for score in scores]
+    '''
+        累加的和单独的1元组BLEU使用相同的权重，也就是（1,0,0,0）。计算累加的2元组BLEU分数为1元组和2元组分别赋50％的权重，
+        计算累加的3元组BLEU为1元组，2元组和3元组分别为赋33％的权重            
+        在描述文本生成系统的性能时，通常会报告从BLEU-1到BLEU-4的累加分数
+    '''
+    # self-BLEU
+    self_Bleu_1 = [
+        sentence_bleu([ref_sents[i].split(" ")], decode.split(" "), weights=(1, 0, 0, 0)) \
+        for i, decode in enumerate(decoded_sents)
+    ]
+    self_Bleu_2 = [
+        sentence_bleu([ref_sents[i].split(" ")], decode.split(" "), weights=(0, 1, 0, 0)) \
+        for i, decode in enumerate(decoded_sents)
+    ]
+    self_Bleu_3 = [
+        sentence_bleu([ref_sents[i].split(" ")], decode.split(" "), weights=(0, 0, 1, 0)) \
+        for i, decode in enumerate(decoded_sents)
+    ]
+    self_Bleu_4 = [
+        sentence_bleu([ref_sents[i].split(" ")], decode.split(" "), weights=(0, 0, 0, 1)) \
+        for i, decode in enumerate(decoded_sents)
+    ]   
+    # commulate-BLEU(BLEU)
+    Bleu_1 = [
+        sentence_bleu([ref_sents[i].split(" ")], decode.split(" "), weights=(1, 0, 0, 0)) \
+        for i, decode in enumerate(decoded_sents)
+    ]
+    Bleu_2 = [
+        sentence_bleu([ref_sents[i].split(" ")], decode.split(" "), weights=(0.5, 0.5, 0, 0)) \
+        for i, decode in enumerate(decoded_sents)
+    ]
+    Bleu_3 = [
+        sentence_bleu([ref_sents[i].split(" ")], decode.split(" "), weights=(0.33, 0.33, 0.33, 0)) \
+        for i, decode in enumerate(decoded_sents)
+    ]
+    Bleu_4 = [
+        sentence_bleu([ref_sents[i].split(" ")], decode.split(" "), weights=(0.25, 0.25, 0.25, 0.25)) \
+        for i, decode in enumerate(decoded_sents)
+    ]    
+    Meteor = [
+        single_meteor_score(ref_sents[i], decode) \
+        for i, decode in enumerate(decoded_sents)
+    ]
+    
+    batch_frame = {
+        'article':article_sents,
+        'keywords':keywords_list,
+        'reference':ref_sents,
+        'decoded':decoded_sents,            
+        'rouge_1':rouge_1,
+        'rouge_2':rouge_2,
+        'rouge_l':rouge_l,            
+        'self_Bleu_1':self_Bleu_1,
+        'self_Bleu_2':self_Bleu_2,
+        'self_Bleu_3':self_Bleu_3,
+        'self_Bleu_4':self_Bleu_4,
+        'Bleu_1':Bleu_1,
+        'Bleu_2':Bleu_2,
+        'Bleu_3':Bleu_3,
+        'Bleu_4':Bleu_4,
+        'Meteor':Meteor,
+        'article_lens': [len(r.split(" ")) for r in article_sents],
+        'ref_lens': [len(r.split(" ")) for r in ref_sents],
+        'overlap': overlap,
+        'too_overlap': too_overlap
+    }
+    batch_frame = pd.DataFrame(batch_frame)
+    return rouge_1, rouge_2, rouge_l, self_Bleu_1, self_Bleu_2, self_Bleu_3, self_Bleu_4, \
+            Bleu_1, Bleu_2, Bleu_3, Bleu_4, Meteor, batch_frame 
+
+def total_output(mode, writerPath, outFrame, avg_time, avg_rouge_1, avg_rouge_2, avg_rouge_l, \
+    avg_self_bleu1, avg_self_bleu2, avg_self_bleu3, avg_self_bleu4, \
+    avg_bleu1, avg_bleu2, avg_bleu3, avg_bleu4, avg_meteor
+    ):
+    #     print(avg_rouge_1)
+    avg_rouge_1 = sum(avg_rouge_1) / len(avg_rouge_1)
+    avg_rouge_2 = sum(avg_rouge_2) / len(avg_rouge_2)
+    avg_rouge_l = sum(avg_rouge_l) / len(avg_rouge_l)
+    # --------------------------------------        
+#     print(avg_bleu1)
+    avg_self_bleu1 = sum(avg_self_bleu1)/len(avg_self_bleu1)
+    avg_self_bleu2 = sum(avg_self_bleu2)/len(avg_self_bleu2)
+    avg_self_bleu3 = sum(avg_self_bleu3)/len(avg_self_bleu3)
+    avg_self_bleu4 = sum(avg_self_bleu4)/len(avg_self_bleu4)
+    
+    avg_bleu1 = sum(avg_bleu1)/len(avg_bleu1)
+    avg_bleu2 = sum(avg_bleu2)/len(avg_bleu2)
+    avg_bleu3 = sum(avg_bleu3)/len(avg_bleu3)
+    avg_bleu4 = sum(avg_bleu4)/len(avg_bleu4)
+    # --------------------------------------    
+    avg_meteor = sum(avg_meteor)/len(avg_meteor)  
+    
+    # avg_time = avg_time / (num * config.batch_size) 
+    with open(writerPath + '/%s_res.txt'% mode, 'w', encoding='utf-8') as f:
+        f.write('Accuracy result:\n')
+        f.write('##-- Rouge --##\n')
+        f.write('%sing_avg_rouge_1: %s \n'%(mode, avg_rouge_1))
+        f.write('%sing_avg_rouge_2: %s \n'%(mode, avg_rouge_2))
+        f.write('%sing_avg_rouge_l: %s \n'%(mode, avg_rouge_l))
+
+        f.write('##-- SELF-BLEU --##\n')
+        f.write('%sing_avg_self_bleu1: %s \n'%(mode, avg_self_bleu1))
+        f.write('%sing_avg_self_bleu2: %s \n'%(mode, avg_self_bleu2))
+        f.write('%sing_avg_self_bleu3: %s \n'%(mode, avg_self_bleu3))
+        f.write('%sing_avg_self_bleu4: %s \n'%(mode, avg_self_bleu4))
+        
+        f.write('##-- BLEU --##\n')
+        f.write('%sing_avg_bleu1: %s \n'%(mode, avg_bleu1))
+        f.write('%sing_avg_bleu2: %s \n'%(mode, avg_bleu2))
+        f.write('%sing_avg_bleu3: %s \n'%(mode, avg_bleu3))
+        f.write('%sing_avg_bleu4: %s \n'%(mode, avg_bleu4))
+        
+        f.write('##-- Meteor --##\n')
+        f.write('%sing_avg_meteor: %s \n'%(mode, avg_meteor))
+
+        f.write('Execute Time: %s \n' % avg_time)        
+    # --------------------------------------     
+    outFrame = outFrame.sort_values(by=['article_lens'], ascending = False)
+    outFrame = outFrame[:1000]
+    outFrame.to_excel(writerPath + '/%s_output.xls'% mode)
+    return avg_rouge_l, outFrame

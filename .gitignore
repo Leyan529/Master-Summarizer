@@ -1,3 +1,4 @@
 *.xlsx
 Train-Data/Cameras_high_acc_3/
 Train-Data/Cameras_new/
+*.pyc

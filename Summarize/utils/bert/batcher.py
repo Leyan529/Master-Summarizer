@@ -1,4 +1,5 @@
-from utils.bert import config, data
+# from utils.bert import config, data
+from utils import config
 from utils.bert.data import *
 
 # import config, data
@@ -200,7 +201,9 @@ def getDataLoader(logger, config):
     setattr(config, 'use_bert_basic_tokenizer',True)
  
 
-    train_df, val_df = train_test_split(pd.read_excel(config.xls_path),test_size=0.1, 
+    total_df = pd.read_excel(config.xls_path)
+    total_df = total_df.sort_values(by=['lemm_review_len','overlap'], ascending = False)
+    train_df, val_df = train_test_split(total_df, test_size=0.1, 
                                         random_state=0, shuffle=True)
 
     logger.info('train : %s, test : %s'%(len(train_df), len(val_df)))

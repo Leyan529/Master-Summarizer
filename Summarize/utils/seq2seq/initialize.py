@@ -16,6 +16,7 @@ from glove import Corpus
 # from pytorch_pretrained_bert import BertTokenizer, BertModel, BertForMaskedLM
 from transformers import BertModel, BertTokenizer 
 T.manual_seed(0)
+from utils.seq2seq import data
 
 seed = 114514   # 24岁, 是魔法带学生
 
@@ -200,7 +201,7 @@ def get_init_embedding(config, vocab):
 def loadCheckpoint(logger, load_model_path, model, optimizer):    
     # checkpoint = T.load(load_model_path, map_location='cpu')
     T.backends.cudnn.benchmark = True 
-
+    print(load_model_path)
     checkpoint = T.load(load_model_path)
     model.load_state_dict(checkpoint['model'])
     step = checkpoint['step']

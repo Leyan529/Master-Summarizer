@@ -171,9 +171,10 @@ def getDataLoader(logger, config):
     vocab = Vocab(config.vocab_path, config.vocab_size)
 
     total_df = pd.read_excel(config.xls_path)
-    # total_df = total_df.sort_values(by=['lemm_review_len','overlap'], ascending = False)
+    total_df = total_df.sort_values(by=['lemm_review_len','overlap'], ascending = False)
     train_df, val_df = train_test_split(total_df, test_size=0.1, 
                                         random_state=0, shuffle=True)
+                                        
     logger.info('train : %s, test : %s'%(len(train_df), len(val_df)))
     train_df = train_df.sort_values(by=['lemm_review_len'])
     val_df = val_df.sort_values(by=['lemm_review_len'])
@@ -182,8 +183,11 @@ def getDataLoader(logger, config):
 
 
     # class torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False, sampler=None, num_workers=0, collate_fn=<function default_collate>, pin_memory=False, drop_last=False)
+    train_loader = DataLoader(train_data, batch_size=config.batch_size, shuffle=True, \
+    collate_fn=Collate(), drop_last=True)     
 
-    train_loader = DataLoader(train_data, batch_size=config.batch_size, shuffle=True, collate_fn=Collate(), drop_last=True)      
-    validate_loader = DataLoader(validate_data, batch_size=config.batch_size, shuffle=False, collate_fn=Collate(), drop_last=True)
+    validate_loader = DataLoader(validate_data, batch_size=config.batch_size, shuffle=False, \
+    collate_fn=Collate(), drop_last=True)
+
     logger.info('train batches : %s, test batches : %s'%(len(iter(train_loader)), len(iter(validate_loader))))
     return train_loader, validate_loader, vocab

@@ -1,6 +1,7 @@
 import numpy as np
 import torch as T
-from utils.bert import config
+# from utils.bert import config
+from utils import config
 import logging
 import os
 from datetime import datetime as dt
@@ -50,7 +51,7 @@ def getName(config):
         if config.sep_optim:
             loggerName = 'Sep_' + loggerName
         if config.copy:
-            loggerName = 'Copy_' + loggerName
+            loggerName = 'Pointer_' + loggerName
 
     model_name = ''
     if config.model_type == 'seq2seq':
@@ -66,14 +67,14 @@ def getName(config):
         if config.sep_optim:
             model_name = 'Sep_' + model_name
         if config.copy:
-            model_name = 'Copy_' + model_name
+            model_name = 'Pointer_' + model_name
     if config.train_rl:
         loggerName = loggerName + '_RL'
         model_name = model_name + '_RL'
 
     if config.encoder == 'bert' and config.use_bert_emb :
-        loggerName = loggerName.replace(config.word_emb_type,'Bert')
-        writerPath = 'runs/%s/%s/%s/exp'% (config.data_type, model_name,'Bert')
+        loggerName = loggerName.replace(config.word_emb_type,'BertEmb')
+        writerPath = 'runs/%s/%s/%s/exp'% (config.data_type, model_name,'BertEmb')
     else:
         loggerName = loggerName.replace(config.word_emb_type,'NoPretrain')
         writerPath = 'runs/%s/%s/%s/exp'% (config.data_type, model_name,'NoPretrain')
@@ -132,21 +133,21 @@ def get_input_from_batch(batch, config, batch_first = False):
     """
     enc_batch = get_cuda(batch.enc_inp)
     enc_pad_mask = get_cuda(batch.enc_pad_mask)
-    enc_key_mask = get_cuda(batch.key_pad_mask)
+    # enc_key_mask = get_cuda(batch.key_pad_mask)
 
     if config.model_type == 'seq2seq':
         # 舊制格式
         # 1為保留  0則清除,按照慣例後面為0
         enc_pad_mask = enc_pad_mask.float()
-        enc_key_mask = enc_key_mask.float()
+        # enc_key_mask = enc_key_mask.float()
         # print('poiner-generaator mode')
 
 
-    enc_key = get_cuda(batch.key_inp)
+    # enc_key = get_cuda(batch.key_inp)
     batch_size, seqlen = enc_batch.size()
 
     enc_lens = np.array(batch.enc_lens)
-    key_lens = np.array(batch.key_lens)
+    # key_lens = np.array(batch.key_lens)
     coverage_1 = None
     extra_zeros = None
     enc_batch_extend_vocab = None
@@ -168,15 +169,15 @@ def get_input_from_batch(batch, config, batch_first = False):
         enc_pad_mask.transpose_(0, 1)
         if extra_zeros is not None:
             extra_zeros.transpose_(0, 1)
-    ct_e = T.zeros(batch_size, 2*config.hidden_dim) # context vector
-    ct_e = get_cuda(ct_e)
+    # ct_e = T.zeros(batch_size, 2*config.hidden_dim) # context vector
+    # ct_e = get_cuda(ct_e)
 
     enc_seg = get_cuda(batch.enc_seg)
     enc_cls = get_cuda(batch.enc_cls)
     enc_cls_mask = get_cuda(batch.enc_cls_mask)
 
     return enc_batch, enc_pad_mask, enc_lens, enc_batch_extend_vocab, extra_zeros,\
-     None, ct_e, enc_key, enc_key_mask, key_lens, enc_seg, enc_cls, enc_cls_mask
+     None, None, None, None, None, enc_seg, enc_cls, enc_cls_mask
 
 
 def get_output_from_batch(batch, config, batch_first = False):
