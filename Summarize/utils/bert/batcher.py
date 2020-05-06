@@ -200,7 +200,7 @@ def getDataLoader(logger, config):
     setattr(config, 'unk_vid', vocab.unk_vid)  
     setattr(config, 'use_bert_basic_tokenizer',True)
  
-
+    # 由於 train_test_split 的random state故每次切割的內容皆相同
     total_df = pd.read_excel(config.xls_path)
     total_df = total_df.sort_values(by=['lemm_review_len','overlap'], ascending = False)
     train_df, val_df = train_test_split(total_df, test_size=0.1, 

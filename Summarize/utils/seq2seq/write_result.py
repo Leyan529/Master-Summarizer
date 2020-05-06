@@ -255,7 +255,7 @@ def total_output(mode, writerPath, outFrame, avg_time, avg_rouge_1, avg_rouge_2,
     avg_rouge_2 = sum(avg_rouge_2) / len(avg_rouge_2)
     avg_rouge_l = sum(avg_rouge_l) / len(avg_rouge_l)
     # --------------------------------------        
-#     print(avg_bleu1)
+    # print(avg_bleu1)
     avg_self_bleu1 = sum(avg_self_bleu1)/len(avg_self_bleu1)
     avg_self_bleu2 = sum(avg_self_bleu2)/len(avg_self_bleu2)
     avg_self_bleu3 = sum(avg_self_bleu3)/len(avg_self_bleu3)

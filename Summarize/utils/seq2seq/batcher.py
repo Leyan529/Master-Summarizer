@@ -169,7 +169,7 @@ class ReadDataset(Dataset):
 def getDataLoader(logger, config):
     # 新的資料包裝方式
     vocab = Vocab(config.vocab_path, config.vocab_size)
-
+    # 由於 train_test_split 的random state故每次切割的內容皆相同
     total_df = pd.read_excel(config.xls_path)
     total_df = total_df.sort_values(by=['lemm_review_len','overlap'], ascending = False)
     train_df, val_df = train_test_split(total_df, test_size=0.1, 
