@@ -94,10 +94,15 @@ elif mode == 'main_cat':
     print("make data dict from main_cat : %s " % (main_cat))
     folder = main_cat
     key = mongoObj.getReviewKey()
-elif mode == 'mixCat':   
-    # mongoObj = Mix6()
+elif mode == 'mixCat':  
     # mongoObj = Mix12()
-    mongoObj = Mixbig_5()
+    # mongoObj = Mixbig_5()
+    '''compare'''
+    # mongoObj = Mix6()
+    # mongoObj = Mixbig_Elect_30()
+    # mongoObj = Mixbig_Books_3()
+    # mongoObj = Pure_kitchen()
+    mongoObj = Pure_Cloth()
     
     main_cat = mongoObj.getAttr()
     print("make data dict from Mix cat : %s " % (main_cat))
