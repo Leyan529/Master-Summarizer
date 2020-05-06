@@ -96,8 +96,7 @@ elif mode == 'main_cat':
     key = mongoObj.getReviewKey()
 elif mode == 'mixCat':   
     # mongoObj = Mix6()
-    # mongoObj = Mix12()
-    mongoObj = Mixbig_5()
+    mongoObj = Mix12()
     
     main_cat = mongoObj.getAttr()
     print("make data dict from Mix cat : %s " % (main_cat))
@@ -365,7 +364,7 @@ if not os.path.exists(folder):
         
 
 csv_path = '%s/orign_review.xlsx'%(folder)    
-print("check orign_review", os.path.exists(csv_path))
+print("check ", os.path.exists(csv_path))
 if os.path.exists(csv_path):
     df = pd.read_excel(csv_path)
     print("previous file %s ...."%(csv_path)) 
@@ -376,6 +375,9 @@ else:
 
 from collections import Counter, OrderedDict
 import pandas as pd
+import threading
+import multiprocessing 
+import time
 
 def make_review(df):
     corpus_path = '%s/corpus.txt'%(folder) 
@@ -387,12 +389,12 @@ def make_review(df):
     asin_list, review_list, overall_list, vote_list, summary_list, review_ID_list , cheat_num_list = [] , [] , [] , [] , [] , [] , []
     lemm_review_len_list , lemm_summary_len_list = [] , [] 
     # bert_review_len_list , bert_summary_len_list = [] , [] 
-    # cheat_list = []
+    cheat_list = []
 
 
     with tqdm(total=docCount) as pbar:
         # threads = []
-        # lock = threading.BoundedSemaphore(5) #最多允許10個執行緒同時執行
+        lock = threading.BoundedSemaphore(5) #最多允許10個執行緒同時執行
         # lock = multiprocessing.BoundedSemaphore(10)
         # lock = None
         for i in range(docCount):
@@ -411,7 +413,7 @@ def make_review(df):
                 lemm_review,rev_keywords,sents = text_cleaner(review)
                 # print('review2 : \n',lemm_review)
                 feature_counter.update(rev_keywords)
-                # rev_token_set = set(lemm_review.split(" "))
+                rev_token_set = set(lemm_review.split(" "))
                 lemm_review_len = len(lemm_review.split(" "))
                 # bert_review_len = len(bert_tokenizer.tokenize(lemm_review))
                 [corpus.write(sent + "\n") for sent in sents]
@@ -425,10 +427,10 @@ def make_review(df):
                 # print('summary2 : \n',lemm_summary) 
                 lemm_summary_len = len(lemm_summary.split(" "))
                 temp_summary = " ".join([t for t in lemm_summary.replace('<s> ','').replace(" </s>",'').split() if t != ''])
-                # bert_summary_len = len(bert_tokenizer.tokenize(temp_summary))
+                bert_summary_len = len(bert_tokenizer.tokenize(temp_summary))
                 corpus.write(temp_summary)    
                 # print('summary3 : \n',temp_summary)        
-                # summ_token_set = set(lemm_summary.split(" "))
+                summ_token_set = set(lemm_summary.split(" "))
                 # lemm_summary = '<s> ' + lemm_summary + " </s> "            
                 # print('summary2 : \n',lemm_summary)                      
             except Exception as e :
@@ -488,7 +490,7 @@ if not os.path.exists(folder):
     os.makedirs(folder)
 
 csv_path = '%s/review.xlsx'%(folder)   
-print("check review", os.path.exists(csv_path))
+print("check ", os.path.exists(csv_path))
 if not os.path.exists(csv_path): 
     orign_key_df = make_review(df)
     orign_key_df.to_excel(csv_path, encoding='utf8')
@@ -499,11 +501,25 @@ else:
 print(orign_key_df.columns)
 
 
+# In[ ]:
+# xlsx_path = '%s/review.xlsx'%(folder)  
+# orign_key_df = pd.read_excel(xlsx_path)
+# print(xlsx_path + " Read finished")
+# len(orign_key_df)
+
+
+
+# --------------------------------------------- Fo-Bin --------------------------------------------- #
+# --------------------------------------------- Fo-Bin --------------------------------------------- #
+# --------------------------------------------- Fo-Bin --------------------------------------------- #
 # --------------------------------------------- Fo-Bin --------------------------------------------- #
 import shutil
+# from product import *
+# from data_util.product import *
 
 import pandas as pd
 import random
+import time
 import re
 
 import os
@@ -581,16 +597,46 @@ with open('%s/statistic/data_info.txt'%(folder),'w') as f:
     # plt.show()
     plt.close()
 
+# with open('%s/statistic/bert_data_info.txt'%(folder),'w') as f:
+#     max_bert_rev_len = df['bert_review_len'].max()
+#     min_bert_rev_len = df['bert_review_len'].min()
+#     mean_bert_rev_len = df['bert_review_len'].mean()
+#     median_bert_rev_len = df['bert_review_len'].median()
+
+#     f.write('max_bert_rev_len :%s \n'%(max_bert_rev_len))
+#     f.write('min_bert_rev_len :%s \n'%(min_bert_rev_len))
+#     f.write('mean_bert_rev_len :%s \n'%(mean_bert_rev_len))
+#     f.write('median_bert_rev_len :%s \n'%(median_bert_rev_len))
+    
+#     f.write('\n\n\n')
+#     max_bert_summary_len = df['bert_summary_len'].max()
+#     min_bert_summary_len = df['bert_summary_len'].min()
+#     mean_bert_summary_len = df['bert_summary_len'].mean()
+#     median_bert_summary_len = df['bert_summary_len'].median()
+
+#     f.write('max_bert_summary_len :%s \n'%(max_bert_summary_len))
+#     f.write('min_bert_summary_len :%s \n'%(min_bert_summary_len))
+#     f.write('mean_bert_summary_len :%s \n'%(mean_bert_summary_len))
+#     f.write('median_bert_summary_len :%s \n'%(median_bert_summary_len))   
+
+#     df['bert_review_len'].value_counts().hist()
+#     plt.savefig('%s/statistic/bert_review_len.png'%(folder))
+#     # plt.show()
+#     plt.close()
+
+#     df['bert_summary_len'].value_counts().hist()
+#     plt.savefig('%s/statistic/bert_summary_len.png'%(folder))
+#     # plt.show()
+#     plt.close()
 print('make %s finished'%(csv_path))
 
 df = df[(df.lemm_summary_len >= 4) ] # 過濾single word summary
 df = df[(df.lemm_review_len <= 1000) ] # 過濾single word summary
-df = df[(df.lemm_review_len >= 50) ] # 過濾single word summary
+df = df[(df.lemm_review_len >= 20) ] # 過濾single word summary
 
 df = df.reset_index(drop=True)
 
 csv_path = '%s/pro_review.xlsx'%(folder)   
-print("check pro_review", os.path.exists(csv_path))
 if not os.path.exists(csv_path):
     with tqdm(total=len(df)) as pbar:
         j = 0
@@ -607,8 +653,8 @@ if not os.path.exists(csv_path):
             # lemm_review_len , lemm_summary_len , bert_review_len , bert_summary_len = \
             # data_dict['lemm_review_len'], data_dict['lemm_summary_len'], data_dict['bert_review_len'], data_dict['bert_summary_len'] 
 
-            # lemm_review_len , lemm_summary_len  = \
-            # data_dict['lemm_review_len'], data_dict['lemm_summary_len']
+            lemm_review_len , lemm_summary_len  = \
+            data_dict['lemm_review_len'], data_dict['lemm_summary_len']
 
 
             review = squeeze2(review)
@@ -620,10 +666,8 @@ if not os.path.exists(csv_path):
             review = " ".join([t for t in review.split(" ") if t != ""]).strip()
             summary = summary.replace("\n","").strip()
 
-            rev_tokens, summ_tokens = review.split(" "), summary.split(" ")
-
-            rev_token_set = set(rev_tokens)
-            summ_token_set = set(summ_tokens)
+            rev_token_set = set(review.split(" "))
+            summ_token_set = set(summary.split(" "))
             cheat = rev_token_set & summ_token_set & ( review_keywords | set(opinion_lexicon["total-words"]) )
             if len(cheat) < 3 : continue # => 最佳
             cheat_num = len(cheat)
@@ -666,10 +710,8 @@ if not os.path.exists(csv_path):
                 "cheat": cheat,
                 "cheat_num": cheat_num,
                 'overlap':overlap,
-                'review_len':len(rev_tokens),
-                'summary_len':len(summ_tokens),
-                # "lemm_review_len": lemm_review_len,
-                # "lemm_summary_len": lemm_summary_len,
+                "lemm_review_len": lemm_review_len,
+                "lemm_summary_len": lemm_summary_len,
                 # "bert_review_len": bert_review_len,
                 # "bert_summary_len": bert_summary_len,
                 "POS_FOP_keywords": POS_FOP_keywords,
@@ -686,6 +728,17 @@ if not os.path.exists(csv_path):
         pro_df.to_excel(csv_path, encoding='utf8')
         print(csv_path + " Write finished")   
 
+# # bin write info
+# if not os.path.exists('%s/bin'%(folder)):
+#     shutil.rmtree('%s/bin'%(folder), ignore_errors=True)
+
+# if not os.path.exists('%s/bin/chunked'%(folder)):
+#     os.makedirs('%s/bin/chunked'%(folder))
+
+# makevocab = True
+# if makevocab:
+#     vocab_counter = collections.Counter()
+# filt
 csv_path = '%s/pro_review.xlsx'%(folder)   
 df = pd.read_excel(csv_path)
 print("previous file %s ...."%(csv_path))
@@ -700,10 +753,10 @@ if not os.path.exists(cond_statistic_path):
     os.makedirs(cond_statistic_path)
 
 with open('%s/cond_statistic/data_info.txt'%(folder),'w') as f:
-    max_rev_len = df['review_len'].max()
-    min_rev_len = df['review_len'].min()
-    mean_rev_len = df['review_len'].mean()
-    median_rev_len = df['review_len'].median()
+    max_rev_len = df['lemm_review_len'].max()
+    min_rev_len = df['lemm_review_len'].min()
+    mean_rev_len = df['lemm_review_len'].mean()
+    median_rev_len = df['lemm_review_len'].median()
 
     f.write('max_rev_len :%s \n'%(max_rev_len))
     f.write('min_rev_len :%s \n'%(min_rev_len))
@@ -711,29 +764,180 @@ with open('%s/cond_statistic/data_info.txt'%(folder),'w') as f:
     f.write('median_rev_len :%s \n'%(median_rev_len))
     
     f.write('\n\n\n')
-    max_summary_len = df['summary_len'].max()
-    min_summary_len = df['summary_len'].min()
-    mean_summary_len = df['summary_len'].mean()
-    median_summary_len = df['summary_len'].median()
+    max_summary_len = df['lemm_summary_len'].max()
+    min_summary_len = df['lemm_summary_len'].min()
+    mean_summary_len = df['lemm_summary_len'].mean()
+    median_summary_len = df['lemm_summary_len'].median()
 
     f.write('max_summary_len :%s \n'%(max_summary_len))
     f.write('min_summary_len :%s \n'%(min_summary_len))
     f.write('mean_summary_len :%s \n'%(mean_summary_len))
     f.write('median_summary_len :%s \n'%(median_summary_len))   
 
-    df['review_len'].value_counts().hist()
+    df['lemm_review_len'].value_counts().hist()
     plt.savefig('%s/statistic/review_len.png'%(folder))
     # plt.show()
     plt.close()
 
-    df['summary_len'].value_counts().hist()
+    df['lemm_summary_len'].value_counts().hist()
     plt.savefig('%s/statistic/summary_len.png'%(folder))
     # plt.show()
-    plt.close() 
+    plt.close()
+
+# with open('%s/cond_statistic/bert_data_info.txt'%(folder),'w') as f:
+#     max_bert_rev_len = df['bert_review_len'].max()
+#     min_bert_rev_len = df['bert_review_len'].min()
+#     mean_bert_rev_len = df['bert_review_len'].mean()
+#     median_bert_rev_len = df['bert_review_len'].median()
+
+#     f.write('max_bert_rev_len :%s \n'%(max_bert_rev_len))
+#     f.write('min_bert_rev_len :%s \n'%(min_bert_rev_len))
+#     f.write('mean_bert_rev_len :%s \n'%(mean_bert_rev_len))
+#     f.write('median_bert_rev_len :%s \n'%(median_bert_rev_len))
+    
+#     f.write('\n\n\n')
+#     max_bert_summary_len = df['bert_summary_len'].max()
+#     min_bert_summary_len = df['bert_summary_len'].min()
+#     mean_bert_summary_len = df['bert_summary_len'].mean()
+#     median_bert_summary_len = df['bert_summary_len'].median()
+
+#     f.write('max_bert_summary_len :%s \n'%(max_bert_summary_len))
+#     f.write('min_bert_summary_len :%s \n'%(min_bert_summary_len))
+#     f.write('mean_bert_summary_len :%s \n'%(mean_bert_summary_len))
+#     f.write('median_bert_summary_len :%s \n'%(median_bert_summary_len))   
+
+#     df['bert_review_len'].value_counts().hist()
+#     plt.savefig('%s/statistic/bert_review_len.png'%(folder))
+#     # plt.show()
+#     plt.close()
+
+#     df['bert_summary_len'].value_counts().hist()
+#     plt.savefig('%s/statistic/bert_summary_len.png'%(folder))
+#     plt.show()
+#     plt.close()    
 
 amount = len(df)
-print('Total data : %s'%(amount))  
+print('Total data : %s'%(amount))    
     
+# df = df.iloc[:35000]    
+# train_file
+flit_key_train_df = df.iloc[:int(amount*0.8)]
+
+# test_file
+flit_key_test_df = df.iloc[int(amount*0.8)+1:int(amount*0.9)]
+
+# vald_file
+flit_key_valid_df = df.iloc[int(amount*0.9)+1:]
+sentence_start = "<s>"
+sentence_end = "</s>"
+
+import threading
+import time
+
+# write bin
+def xlsx2bin(set_name,split_df):
+    sents = []
+    with open("%s/bin/%s.bin"%(folder,set_name), 'wb') as file:
+        i = 0
+        # threads = []
+        # lock = threading.BoundedSemaphore(10) #最多允許10個執行緒同時執行
+        with tqdm(total=len(split_df)) as pbar:
+            for idx in range(len(split_df)):
+                pbar.update(1)
+                pbar.set_description("%s write bin file" % (folder))
+                series = split_df.iloc[idx]
+                data_dict = series.to_dict()
+                review , summary , cheat_num = \
+                data_dict['review'], data_dict['summary'], data_dict['cheat_num'] 
+
+                POS_FOP_keywords, DEP_FOP_keywords, TextRank_keywords = \
+                data_dict['POS_FOP_keywords'], data_dict['DEP_FOP_keywords'], data_dict['TextRank_keywords']
+
+
+                # Write to tf.Example
+                tf_example = example_pb2.Example()
+                try:                
+                    tf_example.features.feature['review'].bytes_list.value.extend(
+                        [tf.compat.as_bytes(review, encoding='utf-8')])
+
+                    tf_example.features.feature['summary'].bytes_list.value.extend(
+                        [tf.compat.as_bytes(summary, encoding='utf-8')]) 
+                                
+                    tf_example.features.feature['POS_FOP_keywords'].bytes_list.value.extend(
+                        [tf.compat.as_bytes(POS_FOP_keywords, encoding='utf-8')]) 
+
+                    tf_example.features.feature['DEP_FOP_keywords'].bytes_list.value.extend(
+                        [tf.compat.as_bytes(DEP_FOP_keywords, encoding='utf-8')])                
+
+                    tf_example.features.feature['TextRank_keywords'].bytes_list.value.extend(
+                        [tf.compat.as_bytes(TextRank_keywords, encoding='utf-8')])                    
+                   
+                    tf_example_str = tf_example.SerializeToString()
+                    str_len = len(tf_example_str)  
+                    file.write(struct.pack('q', str_len))
+                    file.write(struct.pack('%ds' % str_len, tf_example_str))
+                    i = i + 1
+                except Exception as e:
+                    pass
+        # for t in threads:
+        #     t.join()
+    print("%s %s finished... "%(file.name,i))
+    return i
+def chunk_file(set_name, chunks_dir):
+    # 分割record bin檔(1000為單位) 
+    in_file = '%s/bin/%s.bin' % (folder,set_name)
+    reader = open(in_file, "rb")
+    chunk = 0
+    finished = False
+    while not finished:
+        # chunk_fname = os.path.join('bin', '/%s/%s_%03d.bin' % (chunks_dir,set_name, chunk))  # new chunk
+        chunk_fname = '%s/%s/%s_%03d.bin' % (chunks_dir,set_name,set_name, chunk)
+        with open(chunk_fname, 'wb') as writer:
+            for _ in range(CHUNK_SIZE):
+                len_bytes = reader.read(8)
+                if not len_bytes:
+                    finished = True
+                    break
+                str_len = struct.unpack('q', len_bytes)[0]
+                example_str = struct.unpack('%ds' % str_len, reader.read(str_len))[0]
+                writer.write(struct.pack('q', str_len))
+                writer.write(struct.pack('%ds' % str_len, example_str))
+            chunk += 1
+def chunk_all(chunks_dir = '%s/bin/chunked'%(folder)):
+    # Make a dir to hold the chunks
+    
+    # Chunk the data
+    for set_name in ['train', 'valid', 'test']:
+        if not os.path.isdir(os.path.join(chunks_dir,set_name)):
+            os.mkdir(os.path.join(chunks_dir,set_name))
+        print("Splitting %s data into chunks..." % set_name)
+        chunk_file(set_name, chunks_dir)
+    print("Saved chunked data in %s" % chunks_dir)
+def main_valid():
+    #Performing rouge evaluation on 1.9 lakh sentences takes lot of time. So, create mini validation set & test set by borrowing 15k samples each from these 1.9 lakh sentences
+    bin_valid_chuncks = os.listdir('%s/bin/chunked/valid/'%(folder))
+    bin_valid_chuncks.sort()
+    if not os.path.exists('%s/bin/chunked/main_valid'%(folder)):
+        os.makedirs('%s/bin/chunked/main_valid'%(folder))
+        
+    samples = random.sample(set(bin_valid_chuncks[:-1]), 2)      #Exclude last bin file; contains only 9k sentences
+    valid_chunk, test_chunk = samples[0], samples[1]
+    shutil.copyfile(os.path.join('%s/bin/chunked/valid'%(folder), valid_chunk), os.path.join("%s/bin/chunked/main_valid"%(folder), "valid_00.bin"))
+    shutil.copyfile(os.path.join('%s/bin/chunked/valid'%(folder), test_chunk), os.path.join("%s/bin/chunked/main_valid"%(folder), "test_00.bin"))
+
+# make bin
+# train_len = xlsx2bin('train',flit_key_train_df)
+# test_len = xlsx2bin('test',flit_key_test_df)
+# valid_len = xlsx2bin('valid',flit_key_valid_df)
+
+with open("data-info.txt",'w',encoding='utf-8') as f :
+    f.write("train : %s\n"%(len(flit_key_train_df)))
+    f.write("test : %s\n"%(len(flit_key_test_df)))
+    f.write("valid : %s\n"%(len(flit_key_valid_df)))
+
+# chunk_all() 
+# main_valid()
+
 
 # Ready Embedding Corpus
 from collections import Counter, OrderedDict
@@ -806,11 +1010,9 @@ def bulid_word2Vec_vocab(wvmodel):
     # vocab_size = len(wvmodel.vocab) + 1
     # vocab = Vocab('%s/Embedding/word2Vec/word.vocab'%(folder), vocab_size)
 
-wvmodel = train_word2Vec(vector_size = 300)
+train_word2Vec(vector_size = 300)
+wvmodel = train_word2Vec(vector_size = 512)
 bulid_word2Vec_vocab(wvmodel)
-train_word2Vec(vector_size = 512)
-# train_word2Vec(vector_size = 768)
-
 
 
 ##------------------------------------------------------
@@ -851,11 +1053,9 @@ def bulid_FastText_vocab(wvmodel):
     # vocab_size = len(wvmodel.vocab) + 1
     # vocab = Vocab('%s/Embedding/FastText/word.vocab'%(folder), vocab_size)
 
-wvmodel = train_FastText(vector_size = 300)
+train_FastText(vector_size = 300)
+wvmodel = train_FastText(vector_size = 512)
 bulid_FastText_vocab(wvmodel)
-train_FastText(vector_size = 512)
-# wvmodel = train_FastText(vector_size = 768)
-
 
 
 ##-----------------------------------------------------
@@ -865,7 +1065,7 @@ from glove import Glove
 from glove import Corpus
 from gensim import corpora
 
-vocab_count = 80000
+vocab_count = 50000
 # write vocab to file
 if not os.path.exists('%s/Embedding/glove'%(folder)):
     os.makedirs('%s/Embedding/glove'%(folder))
@@ -913,11 +1113,9 @@ def bulid_glove_vocab(glove_model):
         print('Already get glove vocab')
 
 corpus = create_glove_corpus()
-glove = train_glove(corpus,vector_size=300)
+train_glove(corpus,vector_size=300)
+glove = train_glove(corpus,vector_size=512)
 bulid_glove_vocab(glove)
-train_glove(corpus,vector_size=512)
-# glove = train_glove(corpus,vector_size=768)
-
 
 #透過gensim以text_data建立字典
 # dictionary = corpora.Dictionary(embedding_corpus)
