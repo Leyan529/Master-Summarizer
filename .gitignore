@@ -2,3 +2,6 @@
 Train-Data/Cameras_high_acc_3/
 Train-Data/Cameras_new/
 *.pyc
+Lingu_Feat/.ipynb_checkpoints/
+Lingu_Feat/data_util/.ipynb_checkpoints/
+Lingu_Feat/opinion-lexicon-English/.ipynb_checkpoints/
