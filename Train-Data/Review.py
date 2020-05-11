@@ -53,6 +53,8 @@ from datetime import datetime
 from tqdm import tqdm
 import nltk
 
+from extract_key import noun_adj, extract_POS, extract_DEP
+
 # mode = 'prod'
 # mode = 'main_cat'
 mode = 'mixCat'
@@ -101,8 +103,8 @@ elif mode == 'mixCat':
     # mongoObj = Mix6()
     # mongoObj = Mixbig_Elect_30()
     # mongoObj = Mixbig_Books_3()
-    # mongoObj = Pure_kitchen()
-    mongoObj = Pure_Cloth()
+    mongoObj = Pure_kitchen()
+    # mongoObj = Pure_Cloth()
     
     main_cat = mongoObj.getAttr()
     print("make data dict from Mix cat : %s " % (main_cat))
@@ -593,7 +595,7 @@ df = df[(df.lemm_review_len <= 1000) ] # 過濾single word summary
 df = df[(df.lemm_review_len >= 50) ] # 過濾single word summary
 
 df = df.reset_index(drop=True)
-
+# ----------------------------------------------------
 csv_path = '%s/pro_review.xlsx'%(folder)   
 print("check pro_review", os.path.exists(csv_path))
 if not os.path.exists(csv_path):
@@ -636,34 +638,45 @@ if not os.path.exists(csv_path):
             overlap = len(rev_token_set & summ_token_set)
             # if len(rev_token_set & summ_token_set) > 0.7*(len(summ_token_set)) : continue # => 避免過高重疊
             
-
             # FOP_keywords
-            POS_FOP_keywords , DEP_FOP_keywords = [] , []
-            for lemm_sent in review.split(" . "):
-                lemm_sent = lemm_sent + " . "
+            # POS_FOP_keywords , DEP_FOP_keywords = [] , []
+            # for lemm_sent in review.split(" . "):
+            #     lemm_sent = lemm_sent + " . "
                 
-                POS_fops = FO_rule_POS(lemm_sent).run()                    
-                POS_fops = [(f, o) for f, o in POS_fops if f in review_keywords]
-                POS_FOP_keywords = POS_FOP_keywords + POS_fops
+            #     POS_fops = FO_rule_POS(lemm_sent).run()                    
+            #     POS_fops = [(f, o) for f, o in POS_fops if f in review_keywords]
+            #     POS_FOP_keywords = POS_FOP_keywords + POS_fops
 
-                DEP_fops = FOP_rule_Depend(lemm_sent).run()
-                DEP_fops = [(f, o) for f, o in DEP_fops if f in review_keywords]
-                DEP_FOP_keywords = DEP_FOP_keywords + DEP_fops
+            #     DEP_fops = FOP_rule_Depend(lemm_sent).run()
+            #     DEP_fops = [(f, o) for f, o in DEP_fops if f in review_keywords]
+            #     DEP_FOP_keywords = DEP_FOP_keywords + DEP_fops
 
-            # FOP_keywords
-            POS_FOP_keywords = ",".join(["%s %s"%(f, o) for f, o in POS_FOP_keywords])
-            DEP_FOP_keywords = ",".join(["%s %s"%(f, o) for f, o in DEP_FOP_keywords])            
-            if len(POS_FOP_keywords) == 0: continue
-            if len(DEP_FOP_keywords) == 0: continue
+            # # FOP_keywords
+            # POS_FOP_keywords = ",".join(["%s %s"%(f, o) for f, o in POS_FOP_keywords])
+            # DEP_FOP_keywords = ",".join(["%s %s"%(f, o) for f, o in DEP_FOP_keywords])            
+            # if len(POS_FOP_keywords) == 0: continue
+            # if len(DEP_FOP_keywords) == 0: continue
+
+            POS_keys , DEP_keys, Noun_adj_keys = [] , [] , []
+            for sent in review.split(" . "):
+                # pos
+                POS_keys = POS_keys + extract_POS(sent).run()[0]
+                # dep
+                DEP_keys = DEP_keys + extract_DEP(sent).run()[0]
+                # noun_adj
+                Noun_adj_keys = Noun_adj_keys + noun_adj(sent)[0]
 
             
             # TextRank
-            TextRank_keywords , TextRank_summary = [] , []
+            TextRank_keywords = []
 
             for words in TextRank.keywords(review).split('\n'):
                 TextRank_keywords.extend(words.split(" "))
-            TextRank_keywords = " ".join(TextRank_keywords)
-            if len(TextRank_keywords) == 0: continue         
+
+            # print(TextRank_keywords)
+            # TextRank_keywords = " ".join(TextRank_keywords)
+            if (len(POS_keys) == 0) or (len(DEP_keys) == 0) \
+                or (len(Noun_adj_keys) == 0) or (len(TextRank_keywords) == 0): continue         
 
             save_dict = {
                 "review": review.strip(),
@@ -677,9 +690,10 @@ if not os.path.exists(csv_path):
                 # "lemm_summary_len": lemm_summary_len,
                 # "bert_review_len": bert_review_len,
                 # "bert_summary_len": bert_summary_len,
-                "POS_FOP_keywords": POS_FOP_keywords,
-                "DEP_FOP_keywords": DEP_FOP_keywords,
-                "TextRank_keywords": TextRank_keywords
+                "POS_keys": POS_keys,
+                "DEP_keys": DEP_keys,
+                "Noun_adj_keys": Noun_adj_keys,
+                "TextRank_keys": TextRank_keywords
             }
             pro_df[j] = save_dict
             j = j + 1
@@ -693,8 +707,11 @@ if not os.path.exists(csv_path):
 
 csv_path = '%s/pro_review.xlsx'%(folder)   
 df = pd.read_excel(csv_path)
-print("previous file %s ...."%(csv_path))
+print("previous pro file %s ...."%(csv_path))
 
+# ----------------------------------------------------
+
+# ----------------------------------------------------
 df = df.dropna(
     axis=0,     # 0: 对行进行操作; 1: 对列进行操作
     how='any'   # 'any': 只要存在 NaN 就 drop 掉; 'all': 必须全部是 NaN 才 drop 
