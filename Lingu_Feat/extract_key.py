@@ -83,6 +83,7 @@ class extract_POS():
 
         if o in list(set(stopwords)): return ()
         else: return [(f,o)]
+        # return [(f,o)]
 
     def run(self):
         ress = self.match_pattern(self.article)
@@ -346,3 +347,51 @@ class extract_DEP():
             buffer_o.append(token.head.text)
             buffer['o'] = buffer_o
         return buffer
+
+def noun_adj(sent):
+    # array of sentence_noun_adj pairs
+    noun_adj_pairs = []
+
+    # array consisting of noun after adjective
+    checked = []
+
+    doc = nlp(sent, "utf-8")
+    # detect noun after adjective
+    for i,token in enumerate(doc):
+        if token.pos_ in ('NOUN','PROPN'):
+        # if token.tag_ in possible_noun:
+            # print(str(token))
+            for j in range(0,len(doc)):
+                if doc[j].pos_ == 'ADJ' and doc[j - 1].pos_ == 'ADV' and j == i - 1:
+                # if doc[j].tag_ in possible_adj and doc[j - 1].tag_ in possible_adv and j == i - 1:
+                    checked.append(str(token))
+                    noun_adj_pairs.append((str(doc),str(token),str(doc[j - 1]) + ' ' + str(doc[j])))
+                    break
+                elif doc[j].pos_ == 'ADJ' and doc[j - 1].pos_ != 'ADV' and j == i - 1:
+                # elif doc[j].tag_ in possible_adj and doc[j - 1].tag_ not in possible_adv and j == i - 1:
+                    checked.append(str(token))
+                    noun_adj_pairs.append((str(doc),str(token),str(doc[j])))
+                    break
+
+    # detect noun before adjective
+    for i,token in enumerate(doc):
+        if str(token) not in checked:
+            if token.pos_ not in ('NOUN','PROPN'):
+            # if token.pos_ not in possible_noun:    
+                continue
+            for j in range(i + 1,len(doc)):
+                if doc[j].pos_ == 'ADJ':
+                # if doc[j].tag_ in possible_adj:    
+                    noun_adj_pairs.append((str(doc),str(token),str(doc[j])))
+                    break
+                    
+    f_list = list(set([item[1] for item in noun_adj_pairs]))
+    o_list = list(set([item[2] for item in noun_adj_pairs]))
+    return (f_list + o_list) , f_list
+
+
+
+
+
+
+
