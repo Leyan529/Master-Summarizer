@@ -100,10 +100,10 @@ elif mode == 'mixCat':
     # mongoObj = Mix12()
     # mongoObj = Mixbig_5()
     '''compare'''
-    # mongoObj = Mix6()
+    mongoObj = Mix6()
     # mongoObj = Mixbig_Elect_30()
     # mongoObj = Mixbig_Books_3()
-    mongoObj = Pure_kitchen()
+    # mongoObj = Pure_kitchen()
     # mongoObj = Pure_Cloth()
     
     main_cat = mongoObj.getAttr()
@@ -592,7 +592,7 @@ print('make %s finished'%(csv_path))
 
 df = df[(df.lemm_summary_len >= 4) ] # 過濾single word summary
 df = df[(df.lemm_review_len <= 1000) ] # 過濾single word summary
-df = df[(df.lemm_review_len >= 50) ] # 過濾single word summary
+df = df[(df.lemm_review_len >= 20) ] # 過濾single word summary
 
 df = df.reset_index(drop=True)
 # ----------------------------------------------------
@@ -666,7 +666,8 @@ if not os.path.exists(csv_path):
                 # noun_adj
                 Noun_adj_keys = Noun_adj_keys + noun_adj(sent)[0]
 
-            
+            if (len(POS_keys) == 0) or (len(DEP_keys) == 0) \
+                or (len(Noun_adj_keys) == 0) : continue
             # TextRank
             TextRank_keywords = []
 
@@ -675,10 +676,14 @@ if not os.path.exists(csv_path):
 
             # print(TextRank_keywords)
             # TextRank_keywords = " ".join(TextRank_keywords)
-            if (len(POS_keys) == 0) or (len(DEP_keys) == 0) \
-                or (len(Noun_adj_keys) == 0) or (len(TextRank_keywords) == 0): continue         
+            if len(TextRank_keywords) == 0: continue         
 
+            rating = data_dict['overall']
             save_dict = {
+                "review_ID": review_ID,
+                "rating": rating,
+                "vote": data_dict['vote'],
+                "binaryrating": 'positive' if rating >=4 else 'negative',
                 "review": review.strip(),
                 "summary": summary.strip(),
                 "cheat": cheat,

@@ -127,33 +127,45 @@ class extract_DEP():
             cp8_buffer = self.cp8(token, cp8_buffer, final)
             cp9_buffer = self.cp9(token, cp9_buffer, final)
 
+        # print('cp9_buffer',cp9_buffer)
         total_buffer = [cp1_buffer, cp2_buffer, cp3_buffer, cp4_buffer, cp5_buffer, cp6_buffer, cp7_buffer, cp8_buffer, cp9_buffer]
-        DEP_keywords = []
-        for buffer in total_buffer:
-            if len(buffer) == 0: continue
-            for item in buffer:
-                DEP_keywords.append(item)
-        new_DEP_keywords = []
-        [new_DEP_keywords.extend(keywords.split(" ")) for keywords in DEP_keywords]
-        new_DEP_keywords = list(set(new_DEP_keywords))
-        self.res = new_DEP_keywords
+        # DEP_keywords = []
+        # for buffer in total_buffer:
+        #     if len(buffer) == 0: continue
+        #     for item in buffer:
+        #         DEP_keywords.append(item)
+        # new_DEP_keywords = []
+        # [new_DEP_keywords.extend(keywords.split(" ")) for keywords in DEP_keywords]
+        # new_DEP_keywords = list(set(new_DEP_keywords))
+        # self.res = new_DEP_keywords
+        self.res_list = total_buffer
     
     def run(self):
-        
-        merge = " ".join(self.res)
-        info = [(token.text, token.tag_) for token in nlp(merge)]
-        # print(info)
+        pfs = []
+        keys = []
 
-        pfs = [token.text for token in nlp(merge) if token.tag_.startswith('N')]
+        for res in self.res_list:    
+            # print(res)
+            pfs.extend(res[0])
+            keys.extend(res[0] + res[1])
+        # print(self.res_list)
+        # merge = " ".join(self.res)
+        # info = [(token.text, token.tag_) for token in nlp(merge)]
+        # # print(info)
+
+        # pfs = [token.text for token in nlp(merge) if token.tag_.startswith('N')]
         # print(pfs)
-        return self.res, pfs
+        # return self.res, pfs
+
+        return list(set(keys)), list(set(pfs))
 
     def cp1(self, token, cp1_buffer, final):
-        '''< h1, m > +conj and(h1, h2) →< h2, m >'''
-        # This camera has great zoom and resolution
-        # zoom(NN) ----amod----> great(JJ)
-        # zoom(NN) ----conj----> resolution(NN)
-        if token.head.tag_ in self.possible_noun and token.dep_ == 'conj':
+        '''amod< N, J > + dobj(V, N) →< N, J >'''
+        # This camera has great zoom
+        # (zoom, great )
+        # has(VBZ) ----dobj----> zoom(NN)
+        # zoom(NN) ----amod----> great(JJ)        
+        if token.head.tag_ in self.possible_verb and token.dep_ == 'dobj':
             # cp1_buffer.add(token)
             # cp1_buffer.add(token.head)
             self.place_buffer(cp1_buffer, token)
@@ -164,14 +176,18 @@ class extract_DEP():
         if final:
             f_list = list(set(cp1_buffer['f']))
             o_list = list(set(cp1_buffer['o']))
-            if len(f_list) == 0 or len(o_list) == 0: return ()
-            res = (f_list[0],o_list[0])
-            return res
+            # if len(f_list) == 0 or len(o_list) == 0: return ()
+            # res = (f_list[0],o_list[0])
+            # return res
+            if len(f_list) == 0 or len(o_list) == 0: return [], []
+            return list(set(f_list)), list(set(o_list))
+        # print('cp1_buffer',cp1_buffer)
         return cp1_buffer
 
     def cp2(self, token, cp2_buffer, final):
-        '''cop(A, V ) + nsubj(A, N) →< N, A > '''
+        '''nsubj(V, N) + acomp(V, J) →< N, A > '''
         # The camera case looks nice . 
+        # (case, nice)
         # looks(VBZ) ----nsubj----> case(NN)
         # looks(VBZ) ----acomp----> nice(JJ)
         if token.head.tag_ in self.possible_verb and token.dep_ == 'nsubj':
@@ -185,35 +201,39 @@ class extract_DEP():
         if final:
             f_list = list(set(cp2_buffer['f']))
             o_list = list(set(cp2_buffer['o']))
-            if (len(f_list) == 0) or (len(o_list) <2): return ()
-            res = (f_list[0],o_list[1])
-            return res
+            # if (len(f_list) == 0) or (len(o_list) <1): return ()
+            # res = (f_list[0],o_list[0])
+            # return res
+            if (len(f_list) == 0) or (len(o_list) <1): return [], []
+            return list(set(f_list)), list(set(o_list))
+        # print('cp2_buffer',cp2_buffer)
         return cp2_buffer
 
     def cp3(self, token, cp3_buffer, final):
-        '''cop(A, V ) + nsubj(A, N) →< N, A > '''
-        # The screen wide and clear 
-        # screen(NN) ----amod----> wide(JJ)
-        # wide(JJ) ----conj----> clear(JJ)
-        if token.head.tag_ in self.possible_adj and token.dep_ == 'conj':
-            # cp3_buffer.add(token)
-            # cp3_buffer.add(token.head)
-            self.place_buffer(cp3_buffer, token)
-        if token.head.tag_ in self.possible_noun and token.dep_ == 'amod':
+        '''npadvmod < noun phrase, N > →< N, ADV >  '''
+        # npadvmod: noun phrase as adverbial modifier
+        #  The screen wide   
+        # (screen, wide)
+        # wide(RB) ----npadvmod----> screen(NN)
+        if token.head.tag_ in self.possible_adv and token.dep_ == 'npadvmod':
             # cp3_buffer.add(token)
             # cp3_buffer.add(token.head)
             self.place_buffer(cp3_buffer, token)
         if final:
             f_list = list(set(cp3_buffer['f']))
             o_list = list(set(cp3_buffer['o']))
-            if len(f_list) == 0 or len(o_list) == 0: return ()
-            res = (f_list[0],o_list[0])
-            return res
+            # if len(f_list) == 0 or len(o_list) < 2: return ()
+            # res = ("%s %s"%(f_list[0],o_list[0]), "%s %s"%(f_list[0],o_list[1]))
+            # return res
+            if len(f_list) == 0 or len(o_list) == 0: return [], []
+            return list(set(f_list)), list(set(o_list))
+        # print('cp3_buffer',cp3_buffer)    
         return cp3_buffer
 
     def cp4(self, token, cp4_buffer, final):
-        '''dobj(V, N) + nsubj(V, N0) →< N, V > '''
+        '''compound(N1, N2) + dobj(V, N) →< N1, V > + < N2, V > '''
         #  I love the picture quality 
+        # ([picture, quality], love)
         # quality(NN) ----compound----> picture(NN)
         # love(VBP) ----dobj----> quality(NN)
         if token.head.tag_ in self.possible_noun and token.dep_ == 'compound':
@@ -227,35 +247,44 @@ class extract_DEP():
         if final:
             f_list = list(set(cp4_buffer['f']))
             o_list = list(set(cp4_buffer['o']))
-            if len(f_list) <2 or len(o_list) == 0: return ()
-            res = ("%s %s"%(f_list[0],o_list[0]), "%s %s"%(f_list[1],o_list[0]))
-            return res
+            # if len(f_list) <2 or len(o_list) == 0: return ()
+            # res = ("%s %s"%(f_list[0],o_list[0]), "%s %s"%(f_list[1],o_list[0]))
+            # return res
+            if len(f_list) <2 or len(o_list) == 0: return [], []
+            return list(set(f_list)), list(set(o_list))
+        # print('cp4_buffer',cp4_buffer)    
         return cp4_buffer
 
     def cp5(self, token, cp5_buffer, final):
-        '''< h1, m > +conj and(h1, h2) →< h2, m >   '''
-        #  This camera has great zoom and resolution  
-        # zoom(NN) ----conj----> resolution(NN)
+        '''amod< N, J > + conj(N1, N2) →< N1, J > + < N2, J >'''
+        # This camera has great zoom and resolution
+        # ([zoom, resolution], great )
         # zoom(NN) ----amod----> great(JJ)
+        # zoom(NN) ----conj----> resolution(NN)
         if token.head.tag_ in self.possible_noun and token.dep_ == 'conj':
             # cp5_buffer.add(token)
             # cp5_buffer.add(token.head)
             self.place_buffer(cp5_buffer, token)
-        if token.tag_ in self.possible_adj and token.dep_ == 'amod':
+        if token.head.tag_ in self.possible_noun and token.dep_ == 'amod':
             # cp5_buffer.add(token)
             # cp5_buffer.add(token.head)
             self.place_buffer(cp5_buffer, token)
         if final:
             f_list = list(set(cp5_buffer['f']))
             o_list = list(set(cp5_buffer['o']))
-            if len(f_list) <2 or len(o_list) == 0: return ()
-            res = ("%s %s"%(f_list[0],o_list[0]), "%s %s"%(f_list[1],o_list[0]))
-            return res
+            # if len(f_list) < 2 or len(o_list) == 0: return ()
+            # res = (f_list[0],o_list[0])
+            # res = ("%s %s"%(f_list[0],o_list[0]), "%s %s"%(f_list[1],o_list[0]))
+            # return res
+            if len(f_list) < 2 or len(o_list) == 0: return [], []
+            return list(set(f_list)), list(set(o_list))
+        # print('cp5_buffer',cp5_buffer)
         return cp5_buffer
 
     def cp6(self, token, cp6_buffer, final):
-        '''< h, m1 > +conj and(m1, m2) →< h, m2 >  '''
-        #  The screen wide and clear   
+        '''amod(N, A1) + conj(A1, A2) →< N, A1 > + < N, A2 >'''
+        # The screen wide and clear 
+        # (screen , [wide, clear])
         # screen(NN) ----amod----> wide(JJ)
         # wide(JJ) ----conj----> clear(JJ)
         if token.head.tag_ in self.possible_adj and token.dep_ == 'conj':
@@ -269,16 +298,20 @@ class extract_DEP():
         if final:
             f_list = list(set(cp6_buffer['f']))
             o_list = list(set(cp6_buffer['o']))
-            if len(f_list) == 0 or len(o_list) < 2: return ()
-            res = ("%s %s"%(f_list[0],o_list[0]), "%s %s"%(f_list[0],o_list[1]))
-            return res
+            # if len(f_list) == 0 or len(o_list) == 0: return ()
+            # res = (f_list[0],o_list[0])
+            # return res
+            if len(f_list) == 0 or len(o_list) == 0: return [], []
+            return list(set(f_list)), list(set(o_list))
+        # print('cp6_buffer',cp6_buffer)
         return cp6_buffer
 
     def cp7(self, token, cp7_buffer, final):
-        '''< h, m1 > +conj and(m1, m2) →< h, m2 >  '''
+        '''compound< N1, N2 > + neg(RB, RB) →< N1 + N2, RB + RB >  '''
         #  The battery life not long   
         # life(NN) ----compound----> battery(NN)
         # long(RB) ----neg----> not(RB)
+        # ([battery, life], [not, long])
         if token.head.tag_ in self.possible_noun and token.dep_ == 'compound':
             self.place_buffer(cp7_buffer, token)
         if token.head.tag_ in self.possible_adv and token.dep_ == 'neg':
@@ -286,41 +319,52 @@ class extract_DEP():
         if final:
             f_list = list(set(cp7_buffer['f']))
             o_list = list(set(cp7_buffer['o']))
-            if len(f_list) < 2 or len(o_list) <2: return ()
-            res = ("%s %s"%(f_list[0],f_list[1]), "%s %s"%(o_list[0],o_list[1]))
-            return res
+            # if len(f_list) < 2 or len(o_list) <2: return ()
+            # res = ("%s %s"%(f_list[0],f_list[1]), "%s %s"%(o_list[0],o_list[1]))
+            # return res
+            if len(f_list) < 2 or len(o_list) <2: return [], []
+            return list(set(f_list)), list(set(o_list))
+        # print('cp7_buffer',cp7_buffer)            
         return cp7_buffer
 
     def cp8(self, token, cp8_buffer, final):
-        '''< h, m1 > +conj and(m1, m2) →< h, m2 >  '''
-        #  The camera case looks nice    
+        '''compound< N1, N2 > + nsubj(J, N) →< N1 + N2 , J >  '''
+        #  The camera case nice 
+        # ([camera, case], nice )   
         # case(NN) ----compound----> camera(NN)
-        # looks(VBZ) ----acomp----> nice(JJ)
+        # nice(JJ) ----nsubj----> case(NN)
         if token.head.tag_ in self.possible_noun and token.dep_ == 'compound':
             self.place_buffer(cp8_buffer, token)
-        if token.head.tag_ in self.possible_verb and token.dep_ == 'acomp':
+        if token.head.tag_ in self.possible_adj and token.dep_ == 'nsubj':
             self.place_buffer(cp8_buffer, token)
         if final:
             f_list = list(set(cp8_buffer['f']))
             o_list = list(set(cp8_buffer['o']))
-            if len(f_list) <2 or len(o_list) == 0: return ()
-            return ("%s %s"%(f_list[1],f_list[0]), o_list[0])
+            # if len(f_list) <2 or len(o_list) == 0: return ()
+            # return ("%s %s"%(f_list[1],f_list[0]), o_list[0])
+            if len(f_list) <2 or len(o_list) == 0: return [], []
+            return list(set(f_list)), list(set(o_list))
+        # print('cp8_buffer',cp8_buffer)      
         return cp8_buffer
 
     def cp9(self, token, cp9_buffer, final):
-        '''< h, m > +nn(N, h) →< h + N, m >   '''
-        #   I love the picture quality     
-        # quality(NN) ----compound----> picture(NN)
+        '''nsubj< V, PRP > + dobj(V, N) →< N, V >   '''
+        #   I love quality     
+        # love(VBP) ----nsubj----> I(PRP)
         # love(VBP) ----dobj----> quality(NN)
-        if token.head.tag_ in self.possible_noun and token.dep_ == 'compound':
+        # (quality, love)
+        if token.head.tag_ in self.possible_verb and token.dep_ == 'nsubj':
             self.place_buffer(cp9_buffer, token)
         if token.head.tag_ in self.possible_verb and token.dep_ == 'dobj':
             self.place_buffer(cp9_buffer, token)
         if final:
             f_list = list(set(cp9_buffer['f']))
             o_list = list(set(cp9_buffer['o']))
-            if len(f_list) <2 or len(o_list) == 0: return ()
-            return ("%s %s"%(f_list[0],f_list[1]), o_list[0])
+            # if len(f_list) <2 or len(o_list) == 0: return ()
+            # return ("%s %s"%(f_list[0],f_list[1]), o_list[0])
+            if len(f_list) <2 or len(o_list) == 0: return [], []
+            return list(set(f_list)), list(set(o_list))
+        # print('cp9_buffer',cp9_buffer)        
         return cp9_buffer
 
     def check_f(self, token):
