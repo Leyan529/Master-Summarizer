@@ -39,7 +39,9 @@ def getName(config):
         if (config.intra_encoder and config.intra_decoder) and True :
             loggerName = loggerName + '_Intra_Atten'
         if config.key_attention:
-            loggerName = loggerName + '_Key_Atten'
+            key_name = config.keywords.replace('_keywords','')
+            key_name = key_name.replace('_FOP','')
+            loggerName = loggerName + '_Key_Atten(%s)'%(key_name)
 
         if not config.pre_train_emb:
             loggerName = loggerName.replace(config.word_emb_type,'no_pretrain')
@@ -51,7 +53,9 @@ def getName(config):
         if (config.intra_encoder and config.intra_decoder) and True :
             model_name = model_name + '_Intra_Atten'
         if config.key_attention:
-            model_name = model_name + '_Key_Atten'
+            key_name = config.keywords.replace('_keywords','')
+            key_name = key_name.replace('_FOP','')
+            model_name = model_name + '_Key_Atten(%s)'%(key_name)
     else:
         model_name = model_name + 'Transformer'
 

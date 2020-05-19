@@ -10,18 +10,25 @@ vocab_size = 60000
 # data_type = 'Cameras_new8'
 # data_type = 'Cameras_high_acc_3' # Cameras_high_acc_3  loss可降至1以內
 # data_type = 'Cameras'
-data_type = 'Mix6_mainCat'
 
-keywords = "POS_FOP_keywords"
+# data_type = 'Mix6_mainCat_old'
+# Data_path = '../Train-Data/%s/'%(data_type)
+# xls_path = Data_path +"/pro_review_overlap.xlsx"
 
-Data_path_ = '../Train-Data/'
+# data_type = 'Mix6_mainCat'
+data_type = 'Mix6_mainCat_20'
 Data_path = '../Train-Data/%s/'%(data_type)
+xls_path = Data_path +"/pro_review.xlsx"
+
+
+keywords = "DEP_keys"
+
+
 
 word_emb_type = 'word2Vec' # glove , bert , gpt-2
 word_emb_path = Data_path + "Embedding/%s/%s.300d.txt"%(word_emb_type,word_emb_type)
 vocab_path = Data_path + 'Embedding/%s/word.vocab'%(word_emb_type)
-# xls_path = Data_path +"/pro_review.xlsx"
-xls_path = Data_path +"/pro_review_overlap.xlsx"
+
 save_model_path = "model/saved_models"
 emb_grad = False
 max_key_num = 8

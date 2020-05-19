@@ -30,6 +30,7 @@ class Encoder(nn.Module):
 #         seq_lens.shape (4,)
         # print(x.shape, seq_lens)
         packed = pack_padded_sequence(x, seq_lens, batch_first=True)
+        # print('packed', seq_lens)
 #         packed type <class 'torch.nn.utils.rnn.PackedSequence'>
         enc_out, enc_hid = self.lstm(packed)
         # print('enc_out',enc_out)
@@ -145,6 +146,7 @@ class decoder_attention(nn.Module):
         :param s_t: hidden state of decoder at current time step
         :param prev_s: If intra_decoder attention, contains list of previous decoder hidden states
         '''
+        at = None
         if config.intra_decoder is False:
             ct_d = get_cuda(T.zeros(s_t.size())) # set c1_d to vector of zeros
         elif prev_s is None:
@@ -167,8 +169,8 @@ class decoder_attention(nn.Module):
             at = F.softmax(et, dim=1).unsqueeze(1)  #batch_size, 1, t-1
             ct_d = T.bmm(at, prev_s).squeeze(1)     #batch_size, hid_size    #  將 previous decoder hidden states 與 attention distribution 做矩阵乘法得 decoder context vector
             prev_s = T.cat([prev_s, s_t.unsqueeze(1)], dim=1)    #batch_size, t, hid_size  # 將目前計算的decoder state 合併到 previous decoder hidden states
-
-        return ct_d, prev_s
+            at = at.squeeze(1) #batch_size, t-1 # 過去關注的t-個時間點的attention score
+        return ct_d, prev_s, at
 
 
 class Decoder(nn.Module):
@@ -209,7 +211,7 @@ class Decoder(nn.Module):
         ct_e, attn_dist, sum_temporal_srcs = self.enc_attention(st_hat, enc_out, enc_padding_mask, sum_temporal_srcs, sum_k_emb)
         # print('enc_ct_e',ct_e.shape);
         # 根據 當下的decoder hidden state 以及過去所有的 previous decoder hidden states 計算出一個新的decoder語意向量 ct_d
-        ct_d, prev_s = self.dec_attention(dec_h, prev_s, sum_k_emb)        #intra-decoder attention
+        ct_d, prev_s, dec_attn = self.dec_attention(dec_h, prev_s, sum_k_emb)        #intra-decoder attention
         # print('ct_d',ct_d.shape);print('prev_s',prev_s)
         # Token generation and pointer              # (eq 9 in DEEP REINFORCED MODEL - https://arxiv.org/pdf/1705.04304.pdf) #按维数1拼接（横着拼）
         #  計算各個decoing step 使用pointer mechanism 做預測單詞的 prob distribution
@@ -259,7 +261,8 @@ class Decoder(nn.Module):
         # print(sum_temporal_srcs.shape)
         # print(prev_s.shape)
         # print('--------------------------------------------------------------------------')
-        return final_dist, s_t, ct_e, sum_temporal_srcs, prev_s
+        enc_attn = attn_dist 
+        return final_dist, s_t, ct_e, sum_temporal_srcs, prev_s, enc_attn, dec_attn
 
 
 

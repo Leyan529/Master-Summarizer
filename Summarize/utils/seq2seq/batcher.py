@@ -46,7 +46,7 @@ class Example:
 
         article = data['review'].strip()
         abstract = data['summary'].strip().replace("<s>","").replace("</s>","")
-#         keywords = data['POS_FOP_keywords']       
+        # keywords = data['POS_keys']       
         keywords = data[config.keywords]
 
         src_words = article.split()[:config.max_enc_steps]
@@ -65,15 +65,19 @@ class Example:
 
         self.original_article = article.strip()
         self.original_abstract = abstract.strip()
-# -----------------------------------------------------------------------------------------------------        
-        key_words = keywords.split()
+        # ---------------------------------------------------------------------------------------------        
+        # key_words = keywords.split()
+        if '[' in keywords: # new_ver
+            key_words = eval(keywords)
+        else: # old_ver
+            key_words = keywords.split()
         key_words = [word for word in key_words if word in vocab._word2id.keys()] # 過濾不在vocabulary 的 keyword
         if len(key_words) > config.max_key_num:
             key_words = key_words[:config.max_key_num]  # 限定key_words數量    
         self.enc_key_len = len(key_words)  # store the length after truncation but before padding
         self.key_inp = [vocab.word2id(w) for w in key_words]  # list of keyword ids; NO UNK token
         self.key_words = key_words
-# -----------------------------------------------------------------------------------------------------        
+        # -----------------------------------------------------------------------------------------------------        
 
     def get_dec_inp_tgt(self, config, sequence, max_len, start_id = START, stop_id = END):
         inp = [start_id] + sequence[:]
@@ -171,13 +175,15 @@ def getDataLoader(logger, config):
     vocab = Vocab(config.vocab_path, config.vocab_size)
     # 由於 train_test_split 的random state故每次切割的內容皆相同
     total_df = pd.read_excel(config.xls_path)
-    total_df = total_df.sort_values(by=['lemm_review_len','overlap'], ascending = False)
+    # total_df = total_df[total_df['review_len']>=50]
+    # total_df = total_df[total_df['summary_len']>=5]
+    total_df = total_df.sort_values(by=['review_len','overlap'], ascending = False)
     train_df, val_df = train_test_split(total_df, test_size=0.1, 
                                         random_state=0, shuffle=True)
                                         
     logger.info('train : %s, test : %s'%(len(train_df), len(val_df)))
-    train_df = train_df.sort_values(by=['lemm_review_len'])
-    val_df = val_df.sort_values(by=['lemm_review_len'])
+    train_df = train_df.sort_values(by=['review_len'])
+    val_df = val_df.sort_values(by=['review_len'])
     train_data = ReadDataset(train_df, config, vocab)
     validate_data = ReadDataset(val_df, config, vocab)
 

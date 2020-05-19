@@ -95,7 +95,7 @@ class Beam(object):
         return all_tokens
 
 
-def beam_search(enc_hid, enc_out, enc_padding_mask, ct_e, extra_zeros, enc_batch_extend_vocab, enc_key_batch, enc_key_lens, model, start_id, end_id, unk_id):
+def beam_search(enc_hid, enc_out, enc_padding_mask, ct_e, extra_zeros, enc_batch_extend_vocab, enc_key_batch, enc_key_mask, model, start_id, end_id, unk_id):
 
     batch_size = len(enc_hid[0])
     beam_idx = T.LongTensor(list(range(batch_size)))
@@ -154,10 +154,10 @@ def beam_search(enc_hid, enc_out, enc_padding_mask, ct_e, extra_zeros, enc_batch
         enc_extend_vocab_beam = enc_batch_extend_vocab[beam_idx].repeat(1, config.beam_size).view(-1, enc_batch_extend_vocab.size(1))
 
         # beam search 在decode時找出final dist機率最大的beam size個單詞
-        final_dist, (dec_h, dec_c), ct_e, sum_temporal_srcs, prev_s = model.decoder(
+        final_dist, (dec_h, dec_c), ct_e, sum_temporal_srcs, prev_s, _, _ = model.decoder(
             x_t, s_t, enc_out_beam, enc_pad_mask_beam, ct_e, 
             extra_zeros_beam, enc_extend_vocab_beam, sum_temporal_srcs, prev_s, 
-            enc_key_batch, enc_key_lens)              #final_dist: rem*beam, n_extended_vocab
+            enc_key_batch, enc_key_mask)              #final_dist: rem*beam, n_extended_vocab
 
         final_dist = final_dist.view(n_rem, config.beam_size, -1)                   #final_dist: rem, beam, n_extended_vocab
         dec_h = dec_h.view(n_rem, config.beam_size, -1)                             #rem, beam, hid_size

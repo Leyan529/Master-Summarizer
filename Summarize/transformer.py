@@ -118,7 +118,8 @@ class AbsSummarizer(nn.Module):
     def __init__(self, config):
         super(AbsSummarizer, self).__init__()
         self.config = config
-        self.encoder = Bert(large = False, temp_dir='../temp', finetune = True)
+        self.encoder = Bert(large = False, temp_dir='../temp', 
+                            finetune = config.finetune_bert)
 
         if (config.encoder == 'Transformer'):
             '''
