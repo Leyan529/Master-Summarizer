@@ -1,3 +1,45 @@
+PF_Tag_Structure = {
+                            # high quality image
+                            'JJ[O] NN[F]/NNS[F]': ( [{'TAG': {"IN": ['JJ']}}, 
+                                                    {'TAG': {"IN": ['NN','NNS']}}] , [1], [0]), 
+                            # battery life
+                            'JJ[O] NN[F]/NNS[F] NN[F]/NNS[F]': ( [{'TAG': {"IN": ['JJ']}},
+                                                                {'TAG': {"IN": ['NN','NNS']}}, 
+                                                                {'TAG': {"IN": ['NN','NNS']}}] , [1,2], [0]),
+                            # high quality image
+                            'JJ[O] JJ[O] NN[F]/NNS[F]': ( [{'TAG': {"IN": ['JJ']}}, 
+                                                           {'TAG': {"IN": ['JJ']}}, 
+                                                            {'TAG': {"IN": ['NN','NNS']}}] , [2], [0]), 
+    
+                            # high quality image
+                            'NN[F]/NNS[F] IN[?] NN[F]/NNS[F]': ( [{'TAG': {"IN": ['NN','NNS']}},
+                                                                  {'TAG': {"IN": ['JJ']}}, 
+                                                                {'TAG': {"IN": ['NN','NNS']}}] , [0,2], [0]), 
+    
+                            # high quality image
+                            'NN[F]/NNS[F] IN[?] NN[F]/NNS[F]': ( [{'TAG': {"IN": ['NN','NNS']}},
+                                                                  {'TAG': {"IN": ['IN']}},
+                                                                {'TAG': {"IN": ['DT']}}, 
+                                                                  {'TAG': {"IN": ['NN','NNS']}}] , [0,3], [0]) 
+    
+    
+}
+
+#         matcher.add("pf2", self.collect_sents, [{'TAG': {"IN": ['NN']}}, {'TAG': {"IN": ['NN']}}])  # add pattern
+#         matcher.add("pf3", self.collect_sents, [{'TAG': {"IN": ['JJ']}}, {'TAG': {"IN": ['NN']}}])  # add pattern    
+#         matcher.add("pf4", self.collect_sents,[{'TAG': {"IN": ['NN']}}, {'TAG': {"IN": ['NN']}}, {'TAG': {"IN": ['NN']}}])  # add pattern
+
+#         matcher.add("pf5", self.collect_sents,
+#                     [{'TAG': {"IN": ['JJ']}}, {'TAG': {"IN": ['NN']}}, {'TAG': {"IN": ['NN']}}])
+
+#         matcher.add("pf6", self.collect_sents,
+#                     [{'TAG': {"IN": ['JJ']}}, {'TAG': {"IN": ['JJ']}}, {'TAG': {"IN": ['NN']}}])
+
+#         matcher.add("pf7", self.collect_sents,
+#                     [{'TAG': {"IN": ['NN']}}, {'TAG': {"IN": ['IN']}}, {'TAG': {"IN": ['NN']}}])
+
+#         matcher.add("pf8", self.collect_sents, [{'TAG': {"IN": ['NN']}}, {'TAG': {"IN": ['IN']}},
+#                                                 {'TAG': {"IN": ['DT']}}, {'TAG': {"IN": ['NN']}}])
 
 # FO-Rule(POS)
 # pattern_id : (structure , f_pos_list, o_pos_list)

@@ -20,7 +20,69 @@ from spacy.matcher import Matcher
 from nltk.corpus import stopwords
 stops = set(stopwords.words("english"))
 stopwords = list(stops)
-from rule import POS_Tag_Structure
+from data_util.rule import POS_Tag_Structure, PF_Tag_Structure
+
+class extract_PF():
+    def __init__(self, article):
+        self.article = article
+        self.matched_sents = []  # Collect data of matched sentences to be visualized
+
+    def collect_sents(self, matcher, doc, i, matches):
+        match_id, start, end = matches[i]
+        span = doc[start:end]  # Matched span
+        sent = span.sent  # Sentence containing matched span
+        # Append mock entity for match in displaCy style to matched_sents
+        # get the match span by ofsetting the start and end of the span with the
+        # start and end of the sentence in the doc
+        match_ents = [{
+            "start": span.start_char - sent.start_char,
+            "end": span.end_char - sent.start_char,
+            "label": "MATCH",
+        }]
+        self.matched_sents.append({"text": sent.text, "ents": match_ents})
+
+    def match_pattern(self, sent, flit_keyword=None):
+        res = []
+        matcher = Matcher(nlp.vocab)
+        for pattern_id, item in PF_Tag_Structure.items():
+            matcher.add(pattern_id, self.collect_sents, item[0])  # add POS_Tag_Structure pattern 
+            
+        doc = nlp(sent)
+        matches = matcher(doc)
+        # Serve visualization of sentences containing match with displaCy
+        # set manual=True to make displaCy render straight from a dictionary
+        # (if you're not running the code within a Jupyer environment, you can
+        # use displacy.serve instead)
+        #         displacy.render(self.matched_sents, style="ent", manual=True)       
+        
+
+        for match_id, start, end in matches:
+            # Get the string representation
+            pattern_id = nlp.vocab.strings[match_id]
+            span = doc[start:end]  # The matched span
+            pfs = [(token.text,token.tag_) for token in doc]
+            span_pfs = pfs[start:end]
+            # print(match_id, pattern_id, start, end, span.text)
+            # print(span_pos)
+            pf = self.match_pfs(pattern_id,span_pfs) 
+            if type(pf) == str: res.append(pf)
+            elif type(pf) == list: res.extend(pf)
+        return res
+    
+    def match_pfs(self,pattern_id,span_pos):
+        f_pos_list, _ = PF_Tag_Structure[pattern_id][1:]
+        if len(f_pos_list) > 1:
+            f = [span_pos[pos][0] for pos in f_pos_list]
+            f = " ".join(f)
+            return f.split(" ")
+        elif len(f_pos_list) == 1: 
+            f = span_pos[f_pos_list[0]][0]
+            return f
+        else: return ""
+
+    def run(self):
+        ress = self.match_pattern(self.article)
+        return ress
 
 class extract_POS():
     def __init__(self, article):
