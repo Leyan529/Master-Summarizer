@@ -76,8 +76,8 @@ elif mode == 'mixCat':
     # mongoObj = Mix12()
     # mongoObj = Mixbig_5()
     '''compare'''
-    mongoObj = Mix6()
-    # mongoObj = Mixbig_Elect_30()
+    # mongoObj = Mix6()
+    mongoObj = Mixbig_Elect_30()
     # mongoObj = Mixbig_Books_3()
     # mongoObj = Pure_kitchen()
     # mongoObj = Pure_Cloth()
@@ -322,6 +322,62 @@ df = df.reset_index(drop=True)
 # ----------------------------------------------------
 csv_path = '%s/pro_review.xlsx'%(folder)   
 print("check pro_review", os.path.exists(csv_path))
+
+
+def longest_common_subsequence(main_string, comparing_string):
+
+    # main_string = main_string.split(" ")
+    # comparing_string = comparing_string.split(" ")
+    columns_length = len(main_string)  # Get the length of the first word or base word
+    rows_length = len(comparing_string)  # Get the length of the second word or comparing word
+
+    # MAKE A 2D LIST (MATRIX)
+    dynamic_table = [[0] * (columns_length + 1) for i in range(rows_length + 1)]
+
+    # rows_length = NUMBER OF ROWS
+    # columns_length = NUMBER OF COLUMNS
+    
+    # FILL THE MATRIX FOLLOWING LCS ALGORITHM.
+    for i in range(1, rows_length + 1):
+        for j in range(1, columns_length + 1):
+            if main_string[j - 1] == comparing_string[i - 1]:
+                dynamic_table[i][j] = 1 + dynamic_table[i - 1][j - 1]
+
+            else:
+                dynamic_table[i][j] = max(dynamic_table[i - 1][j], dynamic_table[i][j - 1])
+
+    # print("MATRIX ACCORDING TO LONGEST COMMON SUBSEQUENCE ALGORITHM: \n ")
+
+    # for i in range(rows_length + 1):
+    #     print(dynamic_table[i])
+
+    #print("LENGTH OF LONGEST COMMON SUBSEQUENCE = ", dynamic_table[rows_length][columns_length])
+
+    len_lcs = dynamic_table[rows_length][columns_length]
+
+    i = len(comparing_string)
+    j = len(main_string)
+
+    lcs_string = str()
+
+    # BACKTRACKING TO FIND THE LONGEST COMMON SUBSEQUENCE
+
+    temp = True
+
+    while temp is True:
+        if dynamic_table[i][j] == 0:
+            temp = False
+        elif dynamic_table[i][j] == dynamic_table[i][j - 1]:
+            j = j - 1
+
+        else:
+            lcs_string = main_string[j-1] + " " + lcs_string
+            i = i - 1
+            j = j - 1
+
+    return lcs_string, len_lcs
+
+from textblob import TextBlob
 if not os.path.exists(csv_path):
     with tqdm(total=len(df)) as pbar:
         j = 0
@@ -337,6 +393,7 @@ if not os.path.exists(csv_path):
 
             rev_token_set = set(rev_tokens)
             summ_token_set = set(summ_tokens)
+            
             cheat = rev_token_set & summ_token_set & ( review_keywords | set(opinion_lexicon["total-words"]) )
             if len(cheat) < 3 : continue # => 最佳
             cheat_num = len(cheat)
@@ -364,8 +421,23 @@ if not os.path.exists(csv_path):
 
             # print(TextRank_keywords)
             # TextRank_keywords = " ".join(TextRank_keywords)
-            if len(TextRank_keywords) == 0: continue         
+            # if len(TextRank_keywords) == 0: continue     
 
+            # -------------------------------------------------------------    
+            token_lcs, len_lcs = longest_common_subsequence(rev_tokens, summ_tokens)
+            percent_lcs = len_lcs / len(summ_tokens) * 100 # percent
+            rev_sents = review.split(" . ")
+            overlap_sents = {idx: longest_common_subsequence(sent.split(" "), summ_tokens) for idx, sent in enumerate(rev_sents)}
+            sort_overlap_sent = {k:v for k,v in sorted(overlap_sents.items(), key= lambda item: item[1], reverse=True)}
+            overlap_sent_id = list(sort_overlap_sent.items())[0][0]
+
+            if (overlap_sent_id == 0) and (percent_lcs >= 20): overlap_pos = 0 # overlap_Top 
+            elif (overlap_sent_id == len(rev_tokens)-1) and (percent_lcs >= 20): overlap_pos = 1 # overlap_Final 
+            elif (percent_lcs >= 20): overlap_pos = 2 # overlap_other 
+            else: overlap_pos = -1 # no overlap 
+            # -------------------------------------------------------------  
+            summary_blob = TextBlob(summary.replace("<s> ",'').replace(" </s>",''))
+            # -------------------------------------------------------------
             rating = data_dict['overall']
             save_dict = {
                 "review_ID": review_ID,
@@ -375,7 +447,7 @@ if not os.path.exists(csv_path):
                 "review": review.strip(),
                 "summary": summary.strip(),
                 "cheat": cheat,
-                "cheat_num": cheat_num,
+                "cheat_num": cheat_num,                
                 'overlap':overlap,
                 'review_len':len(rev_tokens),
                 'summary_len':len(summ_tokens),
@@ -386,7 +458,15 @@ if not os.path.exists(csv_path):
                 "POS_keys": POS_keys,
                 "DEP_keys": DEP_keys,
                 "Noun_adj_keys": Noun_adj_keys,
-                "TextRank_keys": TextRank_keywords
+                "TextRank_keys": TextRank_keywords,
+                #-----------------------------------------------------------
+                "len_lcs": len_lcs,
+                "percent_lcs": percent_lcs,
+                "overlap_pos": overlap_pos,
+                "token_lcs": token_lcs,
+                #-----------------------------------------------------------
+                "summary_polarity": summary_blob.sentiment.polarity,
+                "summary_subjectivity": summary_blob.sentiment.subjectivity
             }
             pro_df[j] = save_dict
             j = j + 1
