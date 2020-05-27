@@ -113,7 +113,7 @@ def removeLogger(logger):
         handler.close()
         logger.removeHandler(handler)
 
-def get_input_from_batch(device, batch, config, batch_first = False):
+def get_input_from_batch(batch, config, batch_first = False):
     """
         returns: enc_batch, enc_pad_mask, enc_lens, enc_batch_extend_vocab, extra_zeros, c_t_1, coverage
         如果config没有启用pointer 和cov 则相应的项返回None
@@ -122,9 +122,9 @@ def get_input_from_batch(device, batch, config, batch_first = False):
     # enc_pad_mask = get_cuda(batch.enc_pad_mask)
     # enc_key_mask = get_cuda(batch.key_pad_mask)
 
-    enc_batch = batch.enc_inp.cuda(device)
-    enc_pad_mask = batch.enc_pad_mask.cuda(device)
-    enc_key_mask = batch.key_pad_mask.cuda(device)
+    enc_batch = batch.enc_inp.cuda()
+    enc_pad_mask = batch.enc_pad_mask.cuda()
+    enc_key_mask = batch.key_pad_mask.cuda()
 
     if config.model_type == 'seq2seq':
         # 舊制格式
@@ -134,7 +134,7 @@ def get_input_from_batch(device, batch, config, batch_first = False):
         # print('poiner-generaator mode')
 
     # enc_key = get_cuda(batch.key_inp)
-    enc_key = batch.key_inp.cuda(device)
+    enc_key = batch.key_inp.cuda()
     batch_size, seqlen = enc_batch.size()
 
     enc_lens = T.tensor(np.array(batch.enc_lens))
@@ -144,23 +144,23 @@ def get_input_from_batch(device, batch, config, batch_first = False):
     coverage_1 = None
 
     # enc_batch_extend_vocab = get_cuda(batch.art_batch_extend_vocab)
-    enc_batch_extend_vocab = batch.art_batch_extend_vocab.cuda(device)
+    enc_batch_extend_vocab = batch.art_batch_extend_vocab.cuda()
     # max_art_oovs is the max over all the article oov list in the batch
     if batch.max_art_oovs > 0:
         if config.model_type == 'seq2seq':
             # extra_zeros = get_cuda(T.zeros((batch_size,batch.max_art_oovs)))
-            extra_zeros = T.zeros((batch_size,batch.max_art_oovs)).cuda(device)
+            extra_zeros = T.zeros((batch_size,batch.max_art_oovs)).cuda()
         else:
             # extra_zeros = get_cuda(T.zeros((batch_size, 1, batch.max_art_oovs), requires_grad=False))
-            extra_zeros = T.zeros((batch_size, 1, batch.max_art_oovs), requires_grad=False).cuda(device)
+            extra_zeros = T.zeros((batch_size, 1, batch.max_art_oovs), requires_grad=False).cuda()
 
     # extra_zeros = get_cuda(T.zeros((batch_size, 1, 10),requires_grad=False))
     if config.coverage:
         # coverage_1 = get_cuda(T.zeros((batch_size, seqlen), requires_grad=False))
-        coverage_1 = T.zeros((batch_size, seqlen), requires_grad=False).cuda(device)
+        coverage_1 = T.zeros((batch_size, seqlen), requires_grad=False).cuda()
 
 
-    ct_e = T.zeros(batch_size, 2*config.hidden_dim).cuda(device) # context vector
+    ct_e = T.zeros(batch_size, 2*config.hidden_dim).cuda() # context vector
     # ct_e = get_cuda(ct_e)
 
     # print('enc_batch_extend_vocab',enc_batch_extend_vocab.shape)
@@ -173,7 +173,7 @@ def get_input_from_batch(device, batch, config, batch_first = False):
     return enc_batch, enc_pad_mask, enc_lens, enc_batch_extend_vocab, extra_zeros,\
      coverage_1, ct_e, enc_key, enc_key_mask, key_lens
 
-def get_output_from_batch(device, batch, config, batch_first = False):
+def get_output_from_batch(batch, config, batch_first = False):
     """ returns: dec_batch, dec_pad_mask, max_dec_len, dec_lens_var, tgt_batch """
     dec_lens = batch.dec_lens
     max_dec_len = np.max(np.array(batch.dec_lens))
@@ -188,10 +188,10 @@ def get_output_from_batch(device, batch, config, batch_first = False):
     # tgt_batch = get_cuda(batch.dec_tgt)
     # dec_lens = get_cuda(dec_lens)
 
-    dec_batch = batch.dec_inp.cuda(device)
-    dec_pad_mask = batch.dec_pad_mask.cuda(device)
-    tgt_batch = batch.dec_tgt.cuda(device)
-    dec_lens = dec_lens.cuda(device)
+    dec_batch = batch.dec_inp.cuda()
+    dec_pad_mask = batch.dec_pad_mask.cuda()
+    tgt_batch = batch.dec_tgt.cuda()
+    dec_lens = dec_lens.cuda()
 
         
     if config.model_type == 'seq2seq':

@@ -206,8 +206,9 @@ def getDataLoader(logger, config):
  
     # 由於 train_test_split 的random state故每次切割的內容皆相同
     total_df = pd.read_excel(config.xls_path)
-    # total_df = total_df[total_df['review_len']>=50]
-    # total_df = total_df[total_df['summary_len']>=5]
+    total_df = total_df[total_df['review_len']<=800]
+    total_df = total_df[total_df['summary_len']<=30]
+    # reveiw_len <= 800 and summary_len<= 30: 494171
     total_df = total_df.sort_values(by=['review_len','overlap'], ascending = False)
     train_df, val_df = train_test_split(total_df, test_size=0.1, 
                                         random_state=0, shuffle=True)

@@ -13,9 +13,10 @@ class Summarizer:
                  regex=True,
                  redundancy_threshold=0.95,
                  default_centroid_mode="tfidf",
+                #  default_centroid_mode="lda",
                  num_topics_lda=4,
                  num_words_lda=5,
-                 language="italian"):
+                 language="english"):
         self.lookup_table = lookup_table.LookupTable(model_path)
         self.stemming = stemming
         self.remove_stopwords = remove_stopwords

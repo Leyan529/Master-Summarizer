@@ -311,6 +311,7 @@ def total_output(mode, writerPath, outFrame, avg_time, avg_rouge_1, avg_rouge_2,
     avg_bleu1, avg_bleu2, avg_bleu3, avg_bleu4, avg_meteor
     ):
     #     print(avg_rouge_1)
+    num = len(avg_rouge_1)
     avg_rouge_1 = sum(avg_rouge_1) / len(avg_rouge_1)
     avg_rouge_2 = sum(avg_rouge_2) / len(avg_rouge_2)
     avg_rouge_l = sum(avg_rouge_l) / len(avg_rouge_l)
@@ -351,9 +352,12 @@ def total_output(mode, writerPath, outFrame, avg_time, avg_rouge_1, avg_rouge_2,
         f.write('##-- Meteor --##\n')
         f.write('%sing_avg_meteor: %s \n'%(mode, avg_meteor))
 
-        f.write('Num : %s Execute Time: %s \n' % (len(avg_bleu4),avg_time))       
+        f.write('Num : %s Execute Time: %s \n' % (num,avg_time))       
     # --------------------------------------     
     outFrame = outFrame.sort_values(by=['article_lens'], ascending = False)
-    outFrame = outFrame[:1000]
-    outFrame.to_excel(writerPath + '/%s_output.xls'% mode)
+    writeFrame = outFrame[:1000]
+    writeFrame.to_excel(writerPath + '/%s_output.xls'% mode)
+    
+    read_info = open(writerPath + '/%s_res.txt'% mode, 'r', encoding='utf-8').readlines()
+    print(mode,'\n',read_info)
     return avg_rouge_l, outFrame

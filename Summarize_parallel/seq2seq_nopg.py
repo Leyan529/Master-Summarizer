@@ -8,11 +8,10 @@ from torch.distributions import Categorical
 from utils.seq2seq.train_util import get_input_from_batch, get_output_from_batch
 import torchsnooper
 import numpy as np
-
 import sys
 from utils.seq2seq.initialize import *
 from utils.seq2seq.batcher import START,END, PAD , UNKNOWN_TOKEN
-from utils.seq2seq.rl_util import *
+
 
 class Encoder(nn.Module):
     def __init__(self):
@@ -228,9 +227,9 @@ class Decoder(nn.Module):
         # print('ct_d',ct_d.shape);print('prev_s',prev_s)
         # Token generation and pointer              # (eq 9 in DEEP REINFORCED MODEL - https://arxiv.org/pdf/1705.04304.pdf) #按维数1拼接（横着拼）
         #  計算各個decoing step 使用pointer mechanism 做預測單詞的 prob distribution
-        p_gen = T.cat([ct_e, ct_d, st_hat, x], 1)
-        p_gen = self.p_gen_linear(p_gen)            # batch_size,1
-        p_gen = T.sigmoid(p_gen)                    # batch_size,1
+        # p_gen = T.cat([ct_e, ct_d, st_hat, x], 1)
+        # p_gen = self.p_gen_linear(p_gen)            # batch_size,1
+        # p_gen = T.sigmoid(p_gen)                    # batch_size,1
 
         # (eq 4 in Pointer - Generator Networks - https: // arxiv.org / pdf / 1704.04368.pdf)
         #  P_vocab = softmax(V'(V[st,ht*]))         # st => dec_h ; ht* => [ct_e | ct_d]
@@ -238,13 +237,14 @@ class Decoder(nn.Module):
         out = self.V(out)                           # batch_size,hid_size
         out = self.V1(out)                          # batch_size, n_vocab
         vocab_dist = F.softmax(out, dim=1)          #  P_vocab
-        vocab_dist = p_gen * vocab_dist             #  P_gen *P_vocab(w) # (generate mode) select word from vocab distribution
-        attn_dist_ = (1 - p_gen) * attn_dist        #  (1 - p_gen) *P_vocab(w) # (copy mode) select word from source attention distribution => (word not appear in the source document) => (OOV words)
+        final_dist = vocab_dist
+        # vocab_dist = p_gen * vocab_dist             #  P_gen *P_vocab(w) # (generate mode) select word from vocab distribution
+        # attn_dist_ = (1 - p_gen) * attn_dist        #  (1 - p_gen) *P_vocab(w) # (copy mode) select word from source attention distribution => (word not appear in the source document) => (OOV words)
 
         # pointer mechanism (as suggested in eq 9 Pointer-Generator Networks - https://arxiv.org/pdf/1704.04368.pdf)
         # extra_zeros : 裝載不在詞彙字典的詞分布
-        if extra_zeros is not None:
-            vocab_dist = T.cat([vocab_dist, extra_zeros], dim=1) # 更新詞彙表分布
+        # if extra_zeros is not None:
+        #     vocab_dist = T.cat([vocab_dist, extra_zeros], dim=1) # 更新詞彙表分布
         '''
         target = self.scatter_add_(dim, index, other) → Tensor
         将张量other所有值加到index张量中指定的index处的self中. 对于中的每个值other ，
@@ -264,7 +264,7 @@ class Decoder(nn.Module):
         # attn_dist_ torch.Size([8, 303])
         # final_dist torch.Size([8, 50003])
         # enc_batch_extend_vocab torch.Size([8, 303])
-        final_dist = vocab_dist.scatter_add(1, enc_batch_extend_vocab, attn_dist_) # 已確定不是scatter_add問題
+        # final_dist = vocab_dist.scatter_add(1, enc_batch_extend_vocab, attn_dist_) # 已確定不是scatter_add問題
         # print('vocab_dist',vocab_dist.shape)
         # print('attn_dist_',attn_dist_.shape)
         # print('final_dist',final_dist.shape)
@@ -422,43 +422,16 @@ class Model(nn.Module):
 
     def forward(self, config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, \
                 extra_zeros, enc_batch_extend_vocab , ct_e, \
-                max_dec_len, dec_batch, target_batch, train_rl = False, art_oovs = None, original_abstract=None, vocab=None):
+                max_dec_len, dec_batch, target_batch, train_rl = False, greedy = False):
         
         if not train_rl:
             return self.MLE(config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, \
                 extra_zeros, enc_batch_extend_vocab , ct_e, \
                 max_dec_len, dec_batch, target_batch)
         else:
-            # inds, log_probs, enc_out = self.RL(config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, \
-            #     extra_zeros, enc_batch_extend_vocab , ct_e, \
-            #     max_dec_len, dec_batch, target_batch, greedy)
-
-            '''multinomial sampling'''
-            sample_inds, RL_log_probs, sample_enc_out = self.RL(config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, \
+            return self.RL(config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, \
                 extra_zeros, enc_batch_extend_vocab , ct_e, \
-                max_dec_len, dec_batch, target_batch, greedy=False)
-
-            '''# greedy sampling'''
-            with T.autograd.no_grad(): 
-                greedy_inds, _, gred_enc_out = self.RL(config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, \
-                extra_zeros, enc_batch_extend_vocab , ct_e, \
-                max_dec_len, dec_batch, target_batch, greedy=True)
-
-            # art_oovs = inputs.art_oovs
-            sample_sents = to_sents(sample_enc_out, sample_inds, vocab, art_oovs)
-            greedy_sents = to_sents(gred_enc_out, greedy_inds, vocab, art_oovs)
-            
-            sample_reward = reward_function(sample_sents, original_abstract) # r(w^s):通过根据概率来随机sample词生成句子的reward值
-            baseline_reward = reward_function(greedy_sents, original_abstract) # r(w^):测试阶段使用greedy decoding取概率最大的词来生成句子的reward值
-
-            batch_reward = T.mean(sample_reward).item()
-            #Self-critic policy gradient training (eq 15 in https://arxiv.org/pdf/1705.04304.pdf)
-            rl_loss = -(sample_reward - baseline_reward) * RL_log_probs  # SCST梯度計算公式     
-            rl_loss = T.mean(rl_loss)  
-            return rl_loss, batch_reward
-            # return rl_loss
-
-            
+                max_dec_len, dec_batch, target_batch, greedy)
         # return pred_probs
 
     

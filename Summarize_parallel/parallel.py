@@ -19,6 +19,7 @@ from torch.nn.parallel.scatter_gather import gather
 from torch.nn.parallel._functions import ReduceAddCoalesced, Broadcast
 from torch.nn.parallel import DistributedDataParallel
 import torch.distributed as dist
+from itertools import chain
 
 torch_ver = torch.__version__[:3]
 
@@ -125,17 +126,130 @@ class DataParallelModel(DataParallel):
         execute_replication_callbacks(modules)
         return modules
 
-    # def forward2(self, config, *inputs, **kwargs):
-    #     # input should be already scatterd
-    #     # scattering the targets instead
-    #     if not self.device_ids:
-    #         return self.module(config, *inputs)
-    #     inputs, kwargs = self.scatter(inputs, kwargs, self.device_ids)
-    #     if len(self.device_ids) == 1:
-    #         return self.module(config, inputs)
-    #     # replicas = self.replicate(self.module, self.device_ids[:len(inputs)])
-    #     # return self.replicate(self.module, self.device_ids[:len(inputs)])
-    #     return self.module(config, inputs)
+    def forward2(self, *inputs):
+        # input should be already scatterd
+        # scattering the targets instead
+        # if not self.device_ids:
+        #     return self.module(config, *inputs)
+        # inputs, kwargs = self.scatter(inputs, kwargs, self.device_ids)
+        # if len(self.device_ids) == 1:
+        #     return self.module(config, inputs)
+        # replicas = self.replicate(self.module, self.device_ids[:len(inputs)])
+        # outputs = _criterion_parallel_apply(replicas, inputs, targets, kwargs)
+        # return self.replicate(self.module, self.device_ids[:len(inputs)])
+        return self.module(*inputs)
+
+    def forward(self, *inputs, **kwargs):
+        if not self.device_ids:
+            return self.module(*inputs, **kwargs)
+
+        for t in chain(self.module.parameters(), self.module.buffers()):
+            if t.device != self.src_device_obj:
+                raise RuntimeError("module must have its parameters and buffers "
+                                "on device {} (device_ids[0]) but found one of "
+                                "them on device: {}".format(self.src_device_obj, t.device))
+        train_rl = "train_rl" in kwargs.keys()
+        if train_rl:
+            # kwargs_1, kwargs_2 = {}, {}
+            # kwargs_1["train_rl"] = kwargs_2["train_rl"] = kwargs["train_rl"]
+            new_kwargs = []
+            nums = int((inputs[0].batch_size)/len(self.device_ids))
+            for i in range(0, len(self.device_ids)):
+                new_kwargs.append(
+                        (
+                        train_rl, 
+                        kwargs["art_oovs"][(i*nums):(i*nums)+nums], 
+                        kwargs["original_abstract"][(i*nums):(i*nums)+nums], 
+                        kwargs['vocab']
+                    )
+                )
+        inputs, kwargs = self.scatter(inputs, kwargs, self.device_ids)
+        if train_rl:
+            new_inputs = []
+            for i in range(0, len(self.device_ids)):
+                new_inputs.append(inputs[i] + new_kwargs[i])
+            inputs = tuple(new_inputs)
+        if len(self.device_ids) == 1:
+            return self.module(*inputs[0], **kwargs[0])
+        replicas = self.replicate(self.module, self.device_ids[:len(inputs)])
+        if train_rl:
+            outputs = self.parallel_apply(replicas, inputs, ({},{}))
+            # outputs = _parallel_apply(replicas, inputs, ({},{}))
+            ((rl_loss1, batch_reward1),(rl_loss2, batch_reward2)) = outputs
+            outputs2 = batch_reward1 + batch_reward2
+            # outputs1 = self.gather([rl_loss1.clone().detach().requires_grad_(True),
+            #                         rl_loss2.clone().detach().requires_grad_(True)], 
+            #                         self.output_device) 
+            
+            # outputs1 = torch.tensor(outputs1).mean()
+            # .mean().cuda(self.output_device).requires_grad_(True)
+            # outputs.mean() 
+            # .clone().detach().requires_grad_(True)
+            # outputs = self.gather(outputs, self.output_device)
+            return ([rl_loss1, rl_loss2], outputs2)
+            # return (outputs, 0)
+        else:
+            outputs = self.parallel_apply(replicas, inputs, kwargs)
+            outputs = self.gather(outputs, self.output_device)
+            return outputs
+
+    def backward(self, outputs):
+        return outputs
+
+def _parallel_apply(modules, inputs, kwargs_tup=None, devices=None):
+    assert len(modules) == len(inputs)
+    if kwargs_tup:
+        assert len(modules) == len(kwargs_tup)
+    else:
+        kwargs_tup = ({},) * len(modules)
+    if devices is not None:
+        assert len(modules) == len(devices)
+    else:
+        devices = [None] * len(modules)
+
+    lock = threading.Lock()
+    results = {}
+    if torch_ver != "0.3":
+        grad_enabled = torch.is_grad_enabled()
+
+    def _worker(i, module, input,  kwargs, device=None):
+        if torch_ver != "0.3":
+            torch.set_grad_enabled(grad_enabled)
+        if device is None:
+            device = get_a_var(input).get_device()
+        try:
+            with torch.cuda.device(device):
+                # this also avoids accidental slicing of `input` if it is a Tensor
+                if not isinstance(input, (list, tuple)):
+                    input = (input,)       
+                output = module(*(input), **kwargs)
+            with lock:
+                results[i] = output
+        except Exception as e:
+            with lock:
+                results[i] = e
+
+    if len(modules) > 1:
+        threads = [threading.Thread(target=_worker,
+                                    args=(i, module, input,
+                                          kwargs, device),)
+                   for i, (module, input, kwargs, device) in
+                   enumerate(zip(modules, inputs, kwargs_tup, devices))]
+
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+    else:
+        _worker(0, modules[0], inputs[0], kwargs_tup[0], devices[0])
+
+    outputs = []
+    for i in range(len(inputs)):
+        output = results[i]
+        if isinstance(output, Exception):
+            raise output
+        outputs.append(output)
+    return outputs
 
 class DataParallelCriterion(DataParallel):
     """
@@ -165,7 +279,8 @@ class DataParallelCriterion(DataParallel):
         replicas = self.replicate(self.module, self.device_ids[:len(inputs)])
         outputs = _criterion_parallel_apply(replicas, inputs, targets, kwargs)
         #return Reduce.apply(*outputs) / len(outputs)
-        return self.gather(outputs, self.output_device).mean() * mle_weight
+        outputs = self.gather(outputs, self.output_device)
+        return outputs.mean()
         # return self.gather(outputs, self.output_device)
     def backward(self, outputs):
         return outputs

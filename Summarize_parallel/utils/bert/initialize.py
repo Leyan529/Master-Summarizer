@@ -209,7 +209,7 @@ def save_model(config, logger, model, optimizer, step, vocab, loss, r_loss=0, ti
     if not os.path.exists(save_path): os.makedirs(save_path)
     save_path = save_path + file_path
     checkpoint = {
-        'model': model.state_dict(),
+        'model': model.module.state_dict(),
         'optimizer': optimizer,
         'step': step,
         'vocab': vocab,

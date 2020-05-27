@@ -12,7 +12,7 @@ class Beam(object):
         # 初始beam score分數為-30
         self.scores = T.FloatTensor(config.beam_size,1).fill_(-30)      #beam_size,1; Initial score of beams = -30
         # self.tokens, self.scores = get_cuda(self.tokens), get_cuda(self.scores)
-        self.tokens, self.scores = self.tokens.to('cuda:%s' % h.device.index) , self.scores.to('cuda:%s' % h.device.index)
+        self.tokens, self.scores = self.tokens.cuda(h.device.index) , self.scores.cuda(h.device.index)
         self.scores[0][0] = 0  
         
         # 每個batch中欲被decode的元素，將根據beam_size進行複製

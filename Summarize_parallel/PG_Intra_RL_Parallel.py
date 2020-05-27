@@ -18,7 +18,6 @@ from tqdm import tqdm
 from translate.seq2seq_beam import *
 from tensorboardX import SummaryWriter
 import argparse
-from utils.seq2seq.rl_util import *
 from torch.distributions import Categorical
 
 import os
@@ -35,15 +34,15 @@ parser.add_argument('--copy', type=bool, default=True, help = 'True/False') # fo
 
 
 parser.add_argument('--model_type', type=str, default='seq2seq', choices=['seq2seq', 'transformer'])
-parser.add_argument('--train_rl', type=bool, default=False, help = 'True/False')
+parser.add_argument('--train_rl', type=bool, default=True, help = 'True/False')
 parser.add_argument('--keywords', type=str, default='POS_keys', 
                     help = 'POS_keys / DEP_keys / Noun_adj_keys / TextRank_keys')
 
 parser.add_argument('--lr', type=float, default=0.0001)
 parser.add_argument('--rand_unif_init_mag', type=float, default=0.02)
 parser.add_argument('--trunc_norm_init_std', type=float, default=0.001)
-parser.add_argument('--mle_weight', type=float, default=1.0)
-parser.add_argument('--gound_truth_prob', type=float, default=0.5)
+parser.add_argument('--mle_weight', type=float, default=0.5)
+parser.add_argument('--gound_truth_prob', type=float, default=0.1)
 
 parser.add_argument('--max_enc_steps', type=int, default=500)
 parser.add_argument('--max_dec_steps', type=int, default=20)
@@ -59,7 +58,7 @@ parser.add_argument('--gradient_accum', type=int, default=1)
 
 parser.add_argument('--load_ckpt', type=str, default='', help='0002000')
 parser.add_argument('--word_emb_type', type=str, default='word2Vec', help='word2Vec/glove/FastText')
-parser.add_argument('--pre_train_emb', type=bool, default=True, help = 'True/False') # 若pre_train_emb為false, 則emb type為NoPretrain
+parser.add_argument('--pre_train_emb', type=bool, default=False, help = 'True/False') # 若pre_train_emb為false, 則emb type為NoPretrain
 
 
 opt = parser.parse_args(args=[])
@@ -71,7 +70,7 @@ writer = SummaryWriter(writerPath)
 eval_model = False
 
 
-# In[ ]:
+# In[2]:
 
 
 train_loader, validate_loader, vocab = getDataLoader(logger, config)
@@ -80,7 +79,7 @@ test_batches = len(iter(validate_loader))
 save_steps = int(train_batches/250)*250
 
 
-# In[ ]:
+# In[3]:
 
 
 from seq2seq import Model
@@ -97,7 +96,7 @@ from parallel import DataParallelModel, DataParallelCriterion
 load_step = None
 model = Model(pre_train_emb=config.pre_train_emb, 
               word_emb_type = config.word_emb_type, 
-              vocab = vocab)
+              vocab = None)
 
 # model = model.cuda()
 optimizer = T.optim.Adam(model.parameters(), lr=config.lr)   
@@ -114,7 +113,7 @@ else:
     model.to('cuda:%s' % 0) #BCW
 
 
-# In[ ]:
+# In[4]:
 
 
 class NLLLoss(nn.Module):
@@ -147,60 +146,54 @@ if not eval_model:
     parallel_loss = DataParallelCriterion(criterion)
 
 
-# In[ ]:
+# In[5]:
 
 
-def to_sents(enc_out, inds, vocab, art_oovs):
-    decoded_strs = []
-    for i in range(len(enc_out)):
-        id_list = inds[i].tolist() # 取出每個sample sentence 的word id list
-        S = output2words(id_list, vocab, art_oovs[i]) #Generate sentence corresponding to sampled words
-        try:
-            end_idx = S.index(data.STOP_DECODING)
-            S = S[:end_idx]
-        except ValueError:
-            S = S
-        if len(S) < 2:          #If length of sentence is less than 2 words, replace it with "xxx"; Avoids setences like "." which throws error while calculating ROUGE
-            S = ["xxx"]
-        S = " ".join(S)
-        decoded_strs.append(S)
-    return decoded_strs
+# def to_sents(enc_out, inds, vocab, art_oovs):
+#     decoded_strs = []
+#     for i in range(len(enc_out)):
+#         id_list = inds[i].tolist() # 取出每個sample sentence 的word id list
+#         S = output2words(id_list, vocab, art_oovs[i]) #Generate sentence corresponding to sampled words
+#         try:
+#             end_idx = S.index(data.STOP_DECODING)
+#             S = S[:end_idx]
+#         except ValueError:
+#             S = S
+#         if len(S) < 2:          #If length of sentence is less than 2 words, replace it with "xxx"; Avoids setences like "." which throws error while calculating ROUGE
+#             S = ["xxx"]
+#         S = " ".join(S)
+#         decoded_strs.append(S)
+#     return decoded_strs
+
+# def merge_res(res):
+#     ((inds1, log_probs1, enc_out1),(inds2, log_probs2, enc_out2)) = res
+#     inds = T.cat([inds1, inds2], dim = 0).cpu()
+#     enc_out = T.cat([enc_out1, enc_out2], dim = 0).cpu()
+#     if type(log_probs1) != list:
+#         log_probs = T.cat([log_probs1, log_probs2], dim = 0).cpu()
+#         return inds, log_probs, enc_out
+#     else:
+#         return inds, _, enc_out
 
 def merge_res(res):
-    ((inds1, log_probs1, enc_out1),(inds2, log_probs2, enc_out2)) = res
-    inds = T.cat([inds1, inds2], dim = 0).cpu()
-    log_probs = T.cat([log_probs1, log_probs2], dim = 0)
-    enc_out = T.cat([enc_out1, enc_out2], dim = 0).cpu()
+    ((rl_loss1, batch_reward1),(rl_loss2, batch_reward2)) = res
+    # rl_loss = T.cat([rl_loss1, rl_loss2], dim = 0).cpu()
+    # batch_reward = T.cat([batch_reward1, batch_reward2], dim = 0).cpu()
 
-#     inds, log_probs, enc_out = res
-#     inds = inds.cpu()
-#     enc_out = enc_out.cpu()
-    return inds, log_probs, enc_out
+    rl_loss = (rl_loss1 + rl_loss2) / 2
+    batch_reward = (batch_reward1 + batch_reward2) / 2
+    # if type(log_probs1) != list:
+    #     log_probs = T.cat([log_probs1, log_probs2], dim = 0).cpu()
+    #     return inds, log_probs, enc_out
+    # else:
+    #     return inds, _, enc_out    
+    return rl_loss, batch_reward
 
-def train_one_rl(package):
+def train_one_rl(package, inputs):
     config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, extra_zeros, enc_batch_extend_vocab, ct_e,                                 max_dec_len, dec_batch, target_batch = package
     
-    # multinomial sampling
-    parallel_res1 = parallel_model(config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, extra_zeros, enc_batch_extend_vocab, ct_e,                                 max_dec_len, dec_batch, target_batch, train_rl = True, greedy=False)
-    sample_inds, RL_log_probs, sample_enc_out = merge_res(parallel_res1)
-    
-    # greedy sampling
-    with T.autograd.no_grad(): 
-        parallel_res2 = parallel_model(config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, extra_zeros, enc_batch_extend_vocab, ct_e,                                     max_dec_len, dec_batch, target_batch, train_rl = True, greedy=True)
-        greedy_inds, _, gred_enc_out = merge_res(parallel_res2)
-        
-        
-    art_oovs = inputs.art_oovs
-    sample_sents = to_sents(sample_enc_out, sample_inds, vocab, art_oovs)
-    greedy_sents = to_sents(gred_enc_out, greedy_inds, vocab, art_oovs)
-    
-    sample_reward = reward_function(sample_sents, inputs.original_abstract) # r(w^s):通过根据概率来随机sample词生成句子的reward值
-    baseline_reward = reward_function(greedy_sents, inputs.original_abstract) # r(w^):测试阶段使用greedy decoding取概率最大的词来生成句子的reward值
-
-    batch_reward = T.mean(sample_reward).item()
-    #Self-critic policy gradient training (eq 15 in https://arxiv.org/pdf/1705.04304.pdf)
-    rl_loss = -(sample_reward - baseline_reward) * RL_log_probs  # SCST梯度計算公式     
-    rl_loss = T.mean(rl_loss)  
+    rl_loss, batch_reward = parallel_model(config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, extra_zeros, enc_batch_extend_vocab, ct_e,                                 max_dec_len, dec_batch, target_batch, train_rl = True, art_oovs = inputs.art_oovs, original_abstract = inputs.original_abstract, vocab = vocab)
+    rl_loss = nn.parallel.gather(rl_loss, 0).mean() 
     return rl_loss, batch_reward
 
 def train_one(package):
@@ -279,11 +272,11 @@ def get_package(inputs):
 #     optimizer.zero_grad() # 清空过往梯度 
 
 
-# In[ ]:
+# In[6]:
 
 
 # @torch.no_grad()
-# @torch.autograd.no_grad()
+@torch.autograd.no_grad()
 def validate(validate_loader, config, model):
     model.eval()
     losses = []
@@ -310,7 +303,7 @@ def calc_running_avg_loss(loss, running_avg_loss, decay=0.99):
     return running_avg_loss
 
 
-# In[ ]:
+# In[7]:
 
 
 # del parallel_model, parallel_loss
@@ -382,7 +375,7 @@ def decode_write_all(writer, logger, epoch, config, model, dataloader, mode):
     return avg_rouge_l, outFrame
 
 
-# In[ ]:
+# In[8]:
 
 
 import time
@@ -410,9 +403,10 @@ if not eval_model:
                 if inner_c: continue
 #                 print('outer_c',package[1] != max(package[4].tolist())[0])
 #                 if (package[1] != (max(package[4].tolist())[0])): continue
+                parallel_model.module.train()
                 mle_loss, pred_probs = train_one(package)
                 if config.train_rl:
-                    rl_loss, batch_reward = train_one_rl(package)             
+                    rl_loss, batch_reward = train_one_rl(package, batch)             
 
                     if step%print_step == 0 :
                         writer.add_scalars('scalar/RL_Loss',  
@@ -428,8 +422,9 @@ if not eval_model:
                     rl_loss = T.FloatTensor([0]).cuda()
                 
                 if config.train_rl:
-                    (config.mle_weight * mle_loss).backward(retain_graph=True) # mle反向传播，计算当前梯度
-                    (config.rl_weight * rl_loss).backward() # rl 反向传播，计算当前梯度
+                    # (config.mle_weight * mle_loss).backward(retain_graph=True) # mle反向传播，计算当前梯度
+                    # (config.rl_weight * rl_loss).backward() # rl 反向传播，计算当前梯度
+                    (config.mle_weight * mle_loss + config.rl_weight * rl_loss).backward()  # 反向传播，计算当前梯度
                 else:
                     (config.mle_weight * mle_loss + config.rl_weight * rl_loss).backward()  # 反向传播，计算当前梯度
 
@@ -471,6 +466,7 @@ if not eval_model:
                                                     
 
                 if step % save_steps == 0:
+                    parallel_model.module.eval()
                     logger.info('epoch : %s' % epoch)
                     val_avg_loss = validate(validate_loader, config, model) # call batch by validate_loader
                     logger.info('epoch %d: %d, training batch loss = %f, running_avg_loss loss = %f, validation loss = %f'

@@ -8,17 +8,16 @@ from torch.distributions import Categorical
 from utils.seq2seq.train_util import get_input_from_batch, get_output_from_batch
 import torchsnooper
 import numpy as np
-
 import sys
 from utils.seq2seq.initialize import *
 from utils.seq2seq.batcher import START,END, PAD , UNKNOWN_TOKEN
-from utils.seq2seq.rl_util import *
+
 
 class Encoder(nn.Module):
     def __init__(self):
         super(Encoder, self).__init__()
 
-        self.lstm = nn.LSTM(config.emb_dim, config.hidden_dim, num_layers=1, batch_first=True, bidirectional=True)
+        self.lstm = nn.LSTM(config.emb_dim, config.hidden_dim, num_layers=1, batch_first=True, bidirectional=True, dropout=0.2)
         init_lstm_wt(self.lstm) # 初始话LSTM的隐层和细胞状态
 
         # 同样考虑向前层和向后层
@@ -37,11 +36,10 @@ class Encoder(nn.Module):
         self.lstm.flatten_parameters()
         seq_lens = seq_lens.view(-1).tolist()
         # bsz = x.size(0)
-        
         if x.device.index != 0:
             x = T.cat([x[0].unsqueeze(0), x], dim=0)
             seq_lens.insert(0, max_enc_len)
-  
+
         packed = pack_padded_sequence(x, seq_lens, batch_first=True)
         enc_out, enc_hid = self.lstm(packed)
 
@@ -70,7 +68,7 @@ class encoder_attention(nn.Module):
         self.W_h = nn.Linear(config.hidden_dim * 2, config.hidden_dim * 2, bias=False)
         self.W_s = nn.Linear(config.hidden_dim * 2, config.hidden_dim * 2)
         self.W_t = nn.Linear(config.emb_dim , config.hidden_dim*2)
-        self.v = nn.Linear(config.hidden_dim * 2, 1, bias=False)
+        self.v = nn.Linear(config.hidden_dim * 2, 1, bias=True)
 
 
     def forward(self, st_hat, h, enc_padding_mask, sum_temporal_srcs, sum_k_emb):
@@ -146,7 +144,7 @@ class decoder_attention(nn.Module):
             self.W_prev = nn.Linear(config.hidden_dim, config.hidden_dim, bias=False)
             self.W_s = nn.Linear(config.hidden_dim, config.hidden_dim)
             self.W_t = nn.Linear(config.emb_dim , config.hidden_dim)
-            self.v = nn.Linear(config.hidden_dim, 1, bias=False)
+            self.v = nn.Linear(config.hidden_dim, 1, bias=True)
 
     def forward(self, s_t, prev_s, sum_k_emb):
         '''Perform intra_decoder attention
@@ -199,10 +197,11 @@ class Decoder(nn.Module):
         init_lstm_wt(self.lstm)
 
         self.p_gen_linear = nn.Linear(config.hidden_dim * 5 + config.emb_dim, 1)
+        self.p_gen_dropout = nn.Dropout(p=0.2)
 
         #p_vocab
-        self.V = nn.Linear(config.hidden_dim*4, config.hidden_dim)
-        self.V1 = nn.Linear(config.hidden_dim, config.vocab_size)
+        self.V = nn.Linear(config.hidden_dim*4, config.hidden_dim, bias=True)
+        self.V1 = nn.Linear(config.hidden_dim, config.vocab_size, bias=True)
         init_linear_wt(self.V1)
 
     def forward(self, x_t, s_t, enc_out, enc_padding_mask, ct_e, extra_zeros, enc_batch_extend_vocab, sum_temporal_srcs, prev_s, key_x, key_mask):
@@ -222,6 +221,7 @@ class Decoder(nn.Module):
         st_hat = T.cat([dec_h, dec_c], dim=1) # st_hat 由 隱藏層狀態dec_h 以及 序列語意向量 dec_c 拼接 => 2 * config.hidden_dim
         # 將拼接的 st_hat(dec_h & dec_c) 與 enc_out 計算出一個新的 attn_dist 並根據 attn_dist 計算出一個新的encoder語意向量 ct_e
         ct_e, attn_dist, sum_temporal_srcs = self.enc_attention(st_hat, enc_out, enc_padding_mask, sum_temporal_srcs, sum_k_emb)
+        # 指針p_gen和生成器vocab_dist共享第一注意頭attn_dist
         # print('enc_ct_e',ct_e.shape);
         # 根據 當下的decoder hidden state 以及過去所有的 previous decoder hidden states 計算出一個新的decoder語意向量 ct_d
         ct_d, prev_s, dec_attn = self.dec_attention(dec_h, prev_s, sum_k_emb)        #intra-decoder attention
@@ -230,6 +230,8 @@ class Decoder(nn.Module):
         #  計算各個decoing step 使用pointer mechanism 做預測單詞的 prob distribution
         p_gen = T.cat([ct_e, ct_d, st_hat, x], 1)
         p_gen = self.p_gen_linear(p_gen)            # batch_size,1
+        p_gen = self.p_gen_dropout(p_gen)
+
         p_gen = T.sigmoid(p_gen)                    # batch_size,1
 
         # (eq 4 in Pointer - Generator Networks - https: // arxiv.org / pdf / 1704.04368.pdf)
@@ -422,43 +424,16 @@ class Model(nn.Module):
 
     def forward(self, config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, \
                 extra_zeros, enc_batch_extend_vocab , ct_e, \
-                max_dec_len, dec_batch, target_batch, train_rl = False, art_oovs = None, original_abstract=None, vocab=None):
+                max_dec_len, dec_batch, target_batch, train_rl = False, greedy = False):
         
         if not train_rl:
             return self.MLE(config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, \
                 extra_zeros, enc_batch_extend_vocab , ct_e, \
                 max_dec_len, dec_batch, target_batch)
         else:
-            # inds, log_probs, enc_out = self.RL(config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, \
-            #     extra_zeros, enc_batch_extend_vocab , ct_e, \
-            #     max_dec_len, dec_batch, target_batch, greedy)
-
-            '''multinomial sampling'''
-            sample_inds, RL_log_probs, sample_enc_out = self.RL(config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, \
+            return self.RL(config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, \
                 extra_zeros, enc_batch_extend_vocab , ct_e, \
-                max_dec_len, dec_batch, target_batch, greedy=False)
-
-            '''# greedy sampling'''
-            with T.autograd.no_grad(): 
-                greedy_inds, _, gred_enc_out = self.RL(config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, \
-                extra_zeros, enc_batch_extend_vocab , ct_e, \
-                max_dec_len, dec_batch, target_batch, greedy=True)
-
-            # art_oovs = inputs.art_oovs
-            sample_sents = to_sents(sample_enc_out, sample_inds, vocab, art_oovs)
-            greedy_sents = to_sents(gred_enc_out, greedy_inds, vocab, art_oovs)
-            
-            sample_reward = reward_function(sample_sents, original_abstract) # r(w^s):通过根据概率来随机sample词生成句子的reward值
-            baseline_reward = reward_function(greedy_sents, original_abstract) # r(w^):测试阶段使用greedy decoding取概率最大的词来生成句子的reward值
-
-            batch_reward = T.mean(sample_reward).item()
-            #Self-critic policy gradient training (eq 15 in https://arxiv.org/pdf/1705.04304.pdf)
-            rl_loss = -(sample_reward - baseline_reward) * RL_log_probs  # SCST梯度計算公式     
-            rl_loss = T.mean(rl_loss)  
-            return rl_loss, batch_reward
-            # return rl_loss
-
-            
+                max_dec_len, dec_batch, target_batch, greedy)
         # return pred_probs
 
     

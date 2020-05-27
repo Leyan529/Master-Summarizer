@@ -6,7 +6,7 @@ import re
 
 # def stemming(data):
 #     to_return = []
-#     stemmer = Stemmer.Stemmer('italian')
+#     stemmer = Stemmer.Stemmer('english')
 #     for sentence in data:
 #         string = ""
 #         temp = sentence.lower().split(" ")
@@ -19,7 +19,7 @@ import re
 
 def stemming(data):
     to_return = []
-    # stemmer = Stemmer.Stemmer('italian')
+    # stemmer = Stemmer.Stemmer('english')
     for sentence in data:
         string = ""
         temp = sentence.lower().split(" ")
@@ -58,7 +58,7 @@ def remove_punctuation_nltk(data):
 
 def remove_stopwords(data):
     to_return = []
-    stop = set(stopwords.words('italian'))
+    stop = set(stopwords.words('english'))
     for sentence in data:
         stopped = ""
         sentence = sentence.lower().split(" ")
