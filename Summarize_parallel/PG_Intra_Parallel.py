@@ -43,7 +43,7 @@ parser.add_argument('--lr', type=float, default=0.0001)
 parser.add_argument('--rand_unif_init_mag', type=float, default=0.02)
 parser.add_argument('--trunc_norm_init_std', type=float, default=0.001)
 parser.add_argument('--mle_weight', type=float, default=1.0)
-parser.add_argument('--gound_truth_prob', type=float, default=0.5)
+parser.add_argument('--gound_truth_prob', type=float, default=0.7)
 
 parser.add_argument('--max_enc_steps', type=int, default=500)
 parser.add_argument('--max_dec_steps', type=int, default=20)
@@ -71,7 +71,7 @@ writer = SummaryWriter(writerPath)
 eval_model = False
 
 
-# In[ ]:
+# In[2]:
 
 
 train_loader, validate_loader, vocab = getDataLoader(logger, config)
@@ -80,7 +80,7 @@ test_batches = len(iter(validate_loader))
 save_steps = int(train_batches/250)*250
 
 
-# In[ ]:
+# In[3]:
 
 
 from seq2seq import Model
@@ -114,7 +114,7 @@ else:
     model.to('cuda:%s' % 0) #BCW
 
 
-# In[ ]:
+# In[4]:
 
 
 class NLLLoss(nn.Module):
@@ -147,7 +147,7 @@ if not eval_model:
     parallel_loss = DataParallelCriterion(criterion)
 
 
-# In[ ]:
+# In[5]:
 
 
 def to_sents(enc_out, inds, vocab, art_oovs):
@@ -177,30 +177,11 @@ def merge_res(res):
 #     enc_out = enc_out.cpu()
     return inds, log_probs, enc_out
 
-def train_one_rl(package):
+def train_one_rl(package, inputs):
     config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, extra_zeros, enc_batch_extend_vocab, ct_e,                                 max_dec_len, dec_batch, target_batch = package
     
-    # multinomial sampling
-    parallel_res1 = parallel_model(config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, extra_zeros, enc_batch_extend_vocab, ct_e,                                 max_dec_len, dec_batch, target_batch, train_rl = True, greedy=False)
-    sample_inds, RL_log_probs, sample_enc_out = merge_res(parallel_res1)
-    
-    # greedy sampling
-    with T.autograd.no_grad(): 
-        parallel_res2 = parallel_model(config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, extra_zeros, enc_batch_extend_vocab, ct_e,                                     max_dec_len, dec_batch, target_batch, train_rl = True, greedy=True)
-        greedy_inds, _, gred_enc_out = merge_res(parallel_res2)
-        
-        
-    art_oovs = inputs.art_oovs
-    sample_sents = to_sents(sample_enc_out, sample_inds, vocab, art_oovs)
-    greedy_sents = to_sents(gred_enc_out, greedy_inds, vocab, art_oovs)
-    
-    sample_reward = reward_function(sample_sents, inputs.original_abstract) # r(w^s):通过根据概率来随机sample词生成句子的reward值
-    baseline_reward = reward_function(greedy_sents, inputs.original_abstract) # r(w^):测试阶段使用greedy decoding取概率最大的词来生成句子的reward值
-
-    batch_reward = T.mean(sample_reward).item()
-    #Self-critic policy gradient training (eq 15 in https://arxiv.org/pdf/1705.04304.pdf)
-    rl_loss = -(sample_reward - baseline_reward) * RL_log_probs  # SCST梯度計算公式     
-    rl_loss = T.mean(rl_loss)  
+    rl_loss, batch_reward = parallel_model(config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, extra_zeros, enc_batch_extend_vocab, ct_e,                                 max_dec_len, dec_batch, target_batch, train_rl = True, art_oovs = inputs.art_oovs, original_abstract = inputs.original_abstract, vocab = vocab)
+    rl_loss = nn.parallel.gather(rl_loss, 0).mean() 
     return rl_loss, batch_reward
 
 def train_one(package):
@@ -279,11 +260,11 @@ def get_package(inputs):
 #     optimizer.zero_grad() # 清空过往梯度 
 
 
-# In[ ]:
+# In[6]:
 
 
 # @torch.no_grad()
-# @torch.autograd.no_grad()
+@torch.autograd.no_grad()
 def validate(validate_loader, config, model):
     model.eval()
     losses = []
@@ -310,7 +291,7 @@ def calc_running_avg_loss(loss, running_avg_loss, decay=0.99):
     return running_avg_loss
 
 
-# In[ ]:
+# In[7]:
 
 
 # del parallel_model, parallel_loss
@@ -382,7 +363,7 @@ def decode_write_all(writer, logger, epoch, config, model, dataloader, mode):
     return avg_rouge_l, outFrame
 
 
-# In[ ]:
+# In[8]:
 
 
 import time
@@ -400,7 +381,7 @@ if not eval_model:
     step = 0
     print_step = 250
     # initialize the early_stopping object
-    early_stopping = EarlyStopping(patience=3, verbose=True)
+    early_stopping = EarlyStopping(config, logger, vocab, loggerName, patience=3, verbose=True)
     try:
         for epoch in range(1, config.max_epochs+1):
             for batch in train_loader:
@@ -408,11 +389,10 @@ if not eval_model:
                 loss_st = time.time()
                 inner_c, package = get_package(batch)
                 if inner_c: continue
-#                 print('outer_c',package[1] != max(package[4].tolist())[0])
-#                 if (package[1] != (max(package[4].tolist())[0])): continue
+                parallel_model.module.train()
                 mle_loss, pred_probs = train_one(package)
                 if config.train_rl:
-                    rl_loss, batch_reward = train_one_rl(package)             
+                    rl_loss, batch_reward = train_one_rl(package, batch)             
 
                     if step%print_step == 0 :
                         writer.add_scalars('scalar/RL_Loss',  
@@ -426,12 +406,8 @@ if not eval_model:
                     sum_total_reward += batch_reward
                 else:
                     rl_loss = T.FloatTensor([0]).cuda()
-                
-                if config.train_rl:
-                    (config.mle_weight * mle_loss).backward(retain_graph=True) # mle反向传播，计算当前梯度
-                    (config.rl_weight * rl_loss).backward() # rl 反向传播，计算当前梯度
-                else:
-                    (config.mle_weight * mle_loss + config.rl_weight * rl_loss).backward()  # 反向传播，计算当前梯度
+
+                (config.mle_weight * mle_loss + config.rl_weight * rl_loss).backward()  # 反向传播，计算当前梯度
 
                 '''梯度累加就是，每次获取1个batch的数据，计算1次梯度，梯度不清空'''
                 if step % (config.gradient_accum) == 0: # gradient accumulation
@@ -469,8 +445,9 @@ if not eval_model:
                                {'running_avg_rl_loss': running_avg_rl_loss
                                }, step)
                                                     
-
+                
                 if step % save_steps == 0:
+                    parallel_model.module.eval()
                     logger.info('epoch : %s' % epoch)
                     val_avg_loss = validate(validate_loader, config, model) # call batch by validate_loader
                     logger.info('epoch %d: %d, training batch loss = %f, running_avg_loss loss = %f, validation loss = %f'
@@ -489,31 +466,16 @@ if not eval_model:
                         'test_avg_loss': val_avg_loss
                        }, epoch)
                     last_save_step = step
-    #             if step%1000 == 0 and step > 0:
-    #                 decode_st = time.time()
-    #                 train_rouge_l_f = decode(writer, logger, step, config, model, batch, mode = 'train') # call batch by validate_loader
-    #                 test_rouge_l_f = decode(writer, logger, step, config, model, validate_loader, mode = 'test') # call batch by validate_loader
-    #                 decode_cost = time.time() - decode_st
-    #                 if step%save_steps == 0: logger.info('epoch %d|step %d| decode cost = %f ms'% (epoch, step, decode_cost))
 
-    #                 writer.add_scalars('scalar/Rouge-L',  
-    #                    {'train_rouge_l_f': train_rouge_l_f,
-    #                     'test_rouge_l_f': test_rouge_l_f
-    #                    }, step)
-    #                 logger.info('epoch %d: %d, train_rouge_l_f = %f, test_rouge_l_f = %f'
-    #                                 % (epoch, step, train_rouge_l_f, test_rouge_l_f))
-    #         break
             logger.info('-------------------------------------------------------------')
-    #         train_avg_acc = avg_acc(writer, logger, epoch, config, model, train_loader, mode = 'train')
-    #         test_avg_acc = avg_acc(writer, logger, epoch, config, model, validate_loader, mode = 'test')                   
-    #         logger.info('epoch %d|step %d| train_avg_acc = %f, test_avg_acc = %f' % (epoch, step, train_avg_acc, test_avg_acc))
+
             if running_avg_reward > 0:
                 logger.info('epoch %d|step %d| running_avg_reward = %f'% (epoch, step, running_avg_reward))
             if running_avg_rl_loss != 0:
                 logger.info('epoch %d|step %d| running_avg_rl_loss = %f'% (epoch, step, running_avg_rl_loss))
             logger.info('-------------------------------------------------------------')
 
-            early_stopping(val_avg_loss) # update patience
+            early_stopping(parallel_model, optimizer, step, val_avg_loss) # update patience
             if early_stopping.early_stop:
                 logger.info("Early stopping epoch %s"%(epoch))
                 break
@@ -545,19 +507,19 @@ else: # EVAL
     removeLogger(logger)
 
 
-# In[ ]:
+# In[9]:
 
 
 test_outFrame.columns
 
 
-# In[ ]:
+# In[10]:
 
 
 test_outFrame[test_outFrame["rouge_1"]>=0.4][['rouge_1','article', 'reference', 'decoded', 'gen_type','overlap']]
 
 
-# In[ ]:
+# In[11]:
 
 
 # batch_16 epoch_6

@@ -12,7 +12,7 @@ import sys
 from utils.seq2seq.initialize import *
 from utils.seq2seq.batcher import START,END, PAD , UNKNOWN_TOKEN
 from utils.seq2seq.rl_util import *
-
+import math, copy, time
 class Encoder(nn.Module):
     def __init__(self):
         super(Encoder, self).__init__()
@@ -26,12 +26,11 @@ class Encoder(nn.Module):
         self.reduce_c = nn.Linear(config.hidden_dim * 2, config.hidden_dim) # 细胞状态
         init_linear_wt(self.reduce_c)
 
-#     @torchsnooper.snoop()
     def forward(self, x, seq_lens, max_enc_len):
-#         Starting var:.. x = tensor<(1, 27, 256), float32, cuda:0, grad>
-#         Starting var:.. seq_lens = ndarray<(1,), int32>
-#         x.shape torch.Size([4, 55, 256])
-#         seq_lens.shape (4,)
+        # Starting var:.. x = tensor<(1, 27, 256), float32, cuda:0, grad>
+        # Starting var:.. seq_lens = ndarray<(1,), int32>
+        # x.shape torch.Size([4, 55, 256])
+        # seq_lens.shape (4,)
         # print(x.shape, seq_lens)
         self.lstm.flatten_parameters()
         seq_lens = seq_lens.view(-1).tolist()
@@ -59,7 +58,55 @@ class Encoder(nn.Module):
             c_reduced = c_reduced[1:]
         return enc_out, (h_reduced, c_reduced)
     
+class MultiHeadedAttention(nn.Module):
+    def __init__(self, h, d_model, dropout=0.1):
+        "初始化時指定頭數h和模型維度d_model"
+        super(MultiHeadedAttention, self).__init__()
+        # 二者是一定整除的
+        assert d_model % h == 0
+        # 按照文中的簡化，我們讓d_v與d_k相等
+        self.d_k = d_model // h
+        self.h = h
+        self.linears = self.clones(nn.Linear(d_model, d_model), 4)
+        self.attn = None
+        self.dropout = nn.Dropout(p=dropout)
 
+    def forward(self, query, key, value, mask=None, sum_temporal_srcs=None):
+        "實現多頭注意力模型"
+        if mask is not None:
+            # Same mask applied to all h heads.
+            mask = mask.unsqueeze(1)
+            mask = mask.unsqueeze(1)
+
+        nbatches = query.size(0)
+        "第二步是將這一批次的數據進行變形 d_model => h x d_k"
+        query, key, value = \
+            [l(x).view(nbatches, -1, self.h, self.d_k).transpose(1, 2)
+             for l, x in zip(self.linears, (query, key, value))]
+        "第三步，針對所有變量計算scaled dot product attention"
+        x, self.attn = self.attention(query, key, value, mask=mask, 
+                                 dropout=self.dropout)
+
+
+        x = x.transpose(1, 2).contiguous().view(nbatches, -1, self.h * self.d_k)
+        ct_e = self.linears[-1](x).squeeze(1)
+        return ct_e, self.attn.squeeze(2), sum_temporal_srcs
+
+    def attention(self, query, key, value, mask=None, dropout=None):
+        "Compute 'Scaled Dot Product Attention'"
+        d_k = query.size(-1)
+        scores = torch.matmul(query, key.transpose(-2, -1)) \
+                / math.sqrt(d_k)
+        if mask is not None:
+            scores = scores.masked_fill(mask == 0, -1e9)
+        p_attn = F.softmax(scores, dim = -1)
+        if dropout is not None:
+            p_attn = dropout(p_attn)
+        return torch.matmul(p_attn, value), p_attn
+
+    def clones(self, module, N):
+        "生成n個相同的層"
+        return nn.ModuleList([copy.deepcopy(module) for _ in range(N)])
 
 class encoder_attention(nn.Module):
 
@@ -115,8 +162,8 @@ class encoder_attention(nn.Module):
             et1 = F.softmax(et, dim=1)  # et = softmax(et)
         # et1 最後加權的attention score
         # assign 0 probability for padded elements
-#         print('et1',et1)
-#         print('enc_padding_mask',enc_padding_mask)
+        # print('et1',et1)
+        # print('enc_padding_mask',enc_padding_mask)
         # print('----------------------------')
         # enc_padding_mask = enc_padding_mask[:,:et1.size(1)]
         at = et1 * enc_padding_mask
@@ -186,7 +233,8 @@ class decoder_attention(nn.Module):
 class Decoder(nn.Module):
     def __init__(self):
         super(Decoder, self).__init__()
-        self.enc_attention = encoder_attention()
+        # self.enc_attention = encoder_attention()
+        self.enc_attention = MultiHeadedAttention(4, config.hidden_dim*2)
         self.dec_attention = decoder_attention()
         self.x_context = nn.Linear(config.hidden_dim*2 + config.emb_dim, config.emb_dim)
         self.x_key_context = nn.Linear(config.hidden_dim*2 + config.emb_dim*2, config.emb_dim)
@@ -220,7 +268,8 @@ class Decoder(nn.Module):
         dec_h, dec_c = s_t # s_t拆分為隱藏層狀態 dec_h 以及 序列語意向量 dec_c
         st_hat = T.cat([dec_h, dec_c], dim=1) # st_hat 由 隱藏層狀態dec_h 以及 序列語意向量 dec_c 拼接 => 2 * config.hidden_dim
         # 將拼接的 st_hat(dec_h & dec_c) 與 enc_out 計算出一個新的 attn_dist 並根據 attn_dist 計算出一個新的encoder語意向量 ct_e
-        ct_e, attn_dist, sum_temporal_srcs = self.enc_attention(st_hat, enc_out, enc_padding_mask, sum_temporal_srcs, sum_k_emb)
+        # ct_e, attn_dist, sum_temporal_srcs = self.enc_attention(st_hat, enc_out, enc_padding_mask, sum_temporal_srcs, sum_k_emb)
+        ct_e, attn_dist, sum_temporal_srcs = self.enc_attention(st_hat, enc_out, enc_out, enc_padding_mask, sum_temporal_srcs)
         # 指針p_gen和生成器vocab_dist共享第一注意頭attn_dist
         # print('enc_ct_e',ct_e.shape);
         # 根據 當下的decoder hidden state 以及過去所有的 previous decoder hidden states 計算出一個新的decoder語意向量 ct_d
@@ -241,7 +290,8 @@ class Decoder(nn.Module):
         out = self.V1(out)                          # batch_size, n_vocab
         vocab_dist = F.softmax(out, dim=1)          #  P_vocab
         vocab_dist = p_gen * vocab_dist             #  P_gen *P_vocab(w) # (generate mode) select word from vocab distribution
-        attn_dist_ = (1 - p_gen) * attn_dist        #  (1 - p_gen) *P_vocab(w) # (copy mode) select word from source attention distribution => (word not appear in the source document) => (OOV words)
+        # attn_dist_ = (1 - p_gen) * attn_dist        #  (1 - p_gen) *P_vocab(w) # (copy mode) select word from source attention distribution => (word not appear in the source document) => (OOV words)
+        attn_dist_ = (1 - p_gen) * attn_dist[:,0,:]        #  (1 - p_gen) *P_vocab(w) # (copy mode) select word from source attention distribution => (word not appear in the source document) => (OOV words)
 
         # pointer mechanism (as suggested in eq 9 Pointer-Generator Networks - https://arxiv.org/pdf/1704.04368.pdf)
         # extra_zeros : 裝載不在詞彙字典的詞分布
