@@ -150,8 +150,6 @@ class DataParallelModel(DataParallel):
                                 "them on device: {}".format(self.src_device_obj, t.device))
         train_rl = "train_rl" in kwargs.keys()
         if train_rl:
-            # kwargs_1, kwargs_2 = {}, {}
-            # kwargs_1["train_rl"] = kwargs_2["train_rl"] = kwargs["train_rl"]
             new_kwargs = []
             nums = int((inputs[0].batch_size)/len(self.device_ids))
             for i in range(0, len(self.device_ids)):
@@ -174,20 +172,9 @@ class DataParallelModel(DataParallel):
         replicas = self.replicate(self.module, self.device_ids[:len(inputs)])
         if train_rl:
             outputs = self.parallel_apply(replicas, inputs, ({},{}))
-            # outputs = _parallel_apply(replicas, inputs, ({},{}))
             ((rl_loss1, batch_reward1),(rl_loss2, batch_reward2)) = outputs
             outputs2 = batch_reward1 + batch_reward2
-            # outputs1 = self.gather([rl_loss1.clone().detach().requires_grad_(True),
-            #                         rl_loss2.clone().detach().requires_grad_(True)], 
-            #                         self.output_device) 
-            
-            # outputs1 = torch.tensor(outputs1).mean()
-            # .mean().cuda(self.output_device).requires_grad_(True)
-            # outputs.mean() 
-            # .clone().detach().requires_grad_(True)
-            # outputs = self.gather(outputs, self.output_device)
             return ([rl_loss1, rl_loss2], outputs2)
-            # return (outputs, 0)
         else:
             outputs = self.parallel_apply(replicas, inputs, kwargs)
             outputs = self.gather(outputs, self.output_device)

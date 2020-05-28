@@ -11,7 +11,7 @@ import numpy as np
 import sys
 from utils.seq2seq.initialize import *
 from utils.seq2seq.batcher import START,END, PAD , UNKNOWN_TOKEN
-
+from utils.seq2seq.rl_util import *
 
 class Encoder(nn.Module):
     def __init__(self):
@@ -407,33 +407,36 @@ class Model(nn.Module):
             log_probs = T.sum(log_probs, dim=1) / lens  # 計算平均的每個句子的log loss # (bs,1)        #compute normalizied log probability of a sentence
         return (inds, log_probs, enc_out)
 
-        # decoded_strs = []
-        # for i in range(len(enc_out)):
-        #     id_list = inds[i].cpu().numpy() # 取出每個sample sentence 的word id list
-        #     S = output2words(id_list, vocab, batch.art_oovs[i]) #Generate sentence corresponding to sampled words
-        #     try:
-        #         end_idx = S.index(data.STOP_DECODING)
-        #         S = S[:end_idx]
-        #     except ValueError:
-        #         S = S
-        #     if len(S) < 2:          #If length of sentence is less than 2 words, replace it with "xxx"; Avoids setences like "." which throws error while calculating ROUGE
-        #         S = ["xxx"]
-        #     S = " ".join(S)
-        #     decoded_strs.append(S)
-        # return decoded_strs, log_probs
-
     def forward(self, config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, \
-                extra_zeros, enc_batch_extend_vocab , ct_e, \
-                max_dec_len, dec_batch, target_batch, train_rl = False, greedy = False):
+            extra_zeros, enc_batch_extend_vocab , ct_e, \
+            max_dec_len, dec_batch, target_batch, train_rl = False, art_oovs = None, original_abstract=None, vocab=None):
         
         if not train_rl:
             return self.MLE(config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, \
                 extra_zeros, enc_batch_extend_vocab , ct_e, \
                 max_dec_len, dec_batch, target_batch)
         else:
-            return self.RL(config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, \
+            '''multinomial sampling'''
+            sample_inds, RL_log_probs, sample_enc_out = self.RL(config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, \
                 extra_zeros, enc_batch_extend_vocab , ct_e, \
-                max_dec_len, dec_batch, target_batch, greedy)
-        # return pred_probs
+                max_dec_len, dec_batch, target_batch, greedy=False)
 
-    
+            '''# greedy sampling'''
+            with T.autograd.no_grad(): 
+                greedy_inds, _, gred_enc_out = self.RL(config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, \
+                extra_zeros, enc_batch_extend_vocab , ct_e, \
+                max_dec_len, dec_batch, target_batch, greedy=True)
+
+            # art_oovs = inputs.art_oovs
+            sample_sents = to_sents(sample_enc_out, sample_inds, vocab, art_oovs)
+            greedy_sents = to_sents(gred_enc_out, greedy_inds, vocab, art_oovs)
+            
+            sample_reward = reward_function(sample_sents, original_abstract) # r(w^s):通过根据概率来随机sample词生成句子的reward值
+            baseline_reward = reward_function(greedy_sents, original_abstract) # r(w^):测试阶段使用greedy decoding取概率最大的词来生成句子的reward值
+
+            batch_reward = T.mean(sample_reward).item()
+            #Self-critic policy gradient training (eq 15 in https://arxiv.org/pdf/1705.04304.pdf)
+            rl_loss = -(sample_reward - baseline_reward) * RL_log_probs  # SCST梯度計算公式     
+            rl_loss = T.mean(rl_loss)  
+            return rl_loss, batch_reward
+            

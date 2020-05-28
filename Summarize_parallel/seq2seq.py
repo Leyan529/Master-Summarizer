@@ -405,21 +405,6 @@ class Model(nn.Module):
             log_probs = T.sum(log_probs, dim=1) / lens  # 計算平均的每個句子的log loss # (bs,1)        #compute normalizied log probability of a sentence
         return (inds, log_probs, enc_out)
 
-        # decoded_strs = []
-        # for i in range(len(enc_out)):
-        #     id_list = inds[i].cpu().numpy() # 取出每個sample sentence 的word id list
-        #     S = output2words(id_list, vocab, batch.art_oovs[i]) #Generate sentence corresponding to sampled words
-        #     try:
-        #         end_idx = S.index(data.STOP_DECODING)
-        #         S = S[:end_idx]
-        #     except ValueError:
-        #         S = S
-        #     if len(S) < 2:          #If length of sentence is less than 2 words, replace it with "xxx"; Avoids setences like "." which throws error while calculating ROUGE
-        #         S = ["xxx"]
-        #     S = " ".join(S)
-        #     decoded_strs.append(S)
-        # return decoded_strs, log_probs
-
     def forward(self, config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, \
                 extra_zeros, enc_batch_extend_vocab , ct_e, \
                 max_dec_len, dec_batch, target_batch, train_rl = False, art_oovs = None, original_abstract=None, vocab=None):
@@ -429,10 +414,6 @@ class Model(nn.Module):
                 extra_zeros, enc_batch_extend_vocab , ct_e, \
                 max_dec_len, dec_batch, target_batch)
         else:
-            # inds, log_probs, enc_out = self.RL(config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, \
-            #     extra_zeros, enc_batch_extend_vocab , ct_e, \
-            #     max_dec_len, dec_batch, target_batch, greedy)
-
             '''multinomial sampling'''
             sample_inds, RL_log_probs, sample_enc_out = self.RL(config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, \
                 extra_zeros, enc_batch_extend_vocab , ct_e, \
@@ -456,9 +437,3 @@ class Model(nn.Module):
             rl_loss = -(sample_reward - baseline_reward) * RL_log_probs  # SCST梯度計算公式     
             rl_loss = T.mean(rl_loss)  
             return rl_loss, batch_reward
-            # return rl_loss
-
-            
-        # return pred_probs
-
-    
