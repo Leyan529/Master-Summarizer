@@ -57,12 +57,15 @@ def remove_tags(text):
 # ---------------------pipeline----------------------------
 # step1 縮寫還原, 過濾html字元
 import re
-def remove_simple_html(text):
+def lower_remove_simple_html(text):
     text = str(text)
     text = text.lower()
     text = text.strip()
 
-    for k, v in contractions.items():
+    for k, v in contraction_mapping.items():
+        if k in text:
+            text = text.replace(k, v)
+    for k, v in special_contractions_mapping.items():
         if k in text:
             text = text.replace(k, v)
 
@@ -151,7 +154,7 @@ def squeeze(s):
     return s
 
 def review_clean(text):
-    text = remove_simple_html(text)
+    text = lower_remove_simple_html(text)
     text = remove_symbol(text)
     text = nltk_bert_token_sents(text)
     text, feats = nltk_noun_pharse_lemm(text)
@@ -160,7 +163,7 @@ def review_clean(text):
     return text, feats, nltk.sent_tokenize(text)
 
 def summary_clean(text):
-    text = remove_simple_html(text)    
+    text = lower_remove_simple_html(text)    
     text = squeeze_sym(text)
     text = remove_symbol(text) 
     text = nltk_bert_token_sents(text)  
