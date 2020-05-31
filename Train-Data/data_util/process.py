@@ -11,6 +11,7 @@ nlp = en_core_web_sm.load()
 
 
 from nltk.corpus import stopwords
+from nltk.corpus import wordnet as wn
 # import networkx as nx
 import os
 import pickle
@@ -99,12 +100,42 @@ def squeeze_sym(s):
     s = s.replace('.', ' ')
     return s
 
+# def nltk_bert_token_sents(text):
+#     text = [
+#                 " ".join([token for token in bert_tokenizer.tokenize(sent)])
+#                 for sent in nltk.sent_tokenize(text)
+#            ]
+#     text = " ".join(text).replace(" ##","")
+#     return text
+
 def nltk_bert_token_sents(text):
-    text = [
-                " ".join([token for token in bert_tokenizer.tokenize(sent)])
-                for sent in nltk.sent_tokenize(text)
-           ]
+    text = bert_tokenizer.tokenize(text)
+    # 判斷詞綴是否在wordnet字典當中，否則將其視為詞根
+    text = [i.replace("##",'') if wn.synsets(i.replace("##",'')) 
+         else i for i in text 
+    ]
+
+    i = 1
+    while(i<len(text)):
+        if '##' in text[i-1]:
+            temp = (text[i-1] + text[i]).replace("##",'')
+            if wn.synsets(temp):
+                pos = i-1
+                text.remove(text[i])
+                text.remove(text[i-1])            
+                text.insert(pos, temp)
+                i += 1
+        elif len(text[i])==1:
+            pos = i-1
+            temp = text[i-1] + text[i]
+            text.remove(text[i])
+            text.remove(text[i-1])            
+            text.insert(pos, temp)
+            i += 1       
+        i += 1
+
     text = " ".join(text).replace(" ##","")
+
     return text
 
 # step3 萃取review 名詞特徵 + 詞性還原
