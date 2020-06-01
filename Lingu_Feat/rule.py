@@ -1,3 +1,22 @@
+PF_Tag_Structure = {
+                            'JJ[O] NN[F]/NNS[F]': ( [{'TAG': {"IN": ['JJ']}}, 
+                                                    {'TAG': {"IN": ['NN','NNS']}}] , [1], [0]), 
+                            'JJ[O] NN[F]/NNS[F] NN[F]/NNS[F]': ( [{'TAG': {"IN": ['JJ']}},
+                                                                {'TAG': {"IN": ['NN','NNS']}}, 
+                                                                {'TAG': {"IN": ['NN','NNS']}}] , [1,2], [0]),
+                            'JJ[O] JJ[O] NN[F]/NNS[F]': ( [{'TAG': {"IN": ['JJ']}}, 
+                                                           {'TAG': {"IN": ['JJ']}}, 
+                                                            {'TAG': {"IN": ['NN','NNS']}}] , [2], [0]), 
+    
+                            'NN[F]/NNS[F] IN[?] NN[F]/NNS[F]': ( [{'TAG': {"IN": ['NN','NNS']}},
+                                                                  {'TAG': {"IN": ['JJ']}}, 
+                                                                {'TAG': {"IN": ['NN','NNS']}}] , [0,2], [0]), 
+    
+                            'NN[F]/NNS[F] IN[?] NN[F]/NNS[F]': ( [{'TAG': {"IN": ['NN','NNS']}},
+                                                                  {'TAG': {"IN": ['IN']}},
+                                                                {'TAG': {"IN": ['DT']}}, 
+                                                                  {'TAG': {"IN": ['NN','NNS']}}] , [0,3], [0]) 
+}
 
 # FO-Rule(POS)
 # pattern_id : (structure , f_pos_list, o_pos_list)
