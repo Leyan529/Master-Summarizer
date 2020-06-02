@@ -176,9 +176,19 @@ def getDataLoader(logger, config):
     vocab = Vocab(config.vocab_path, config.vocab_size)
     # 由於 train_test_split 的random state故每次切割的內容皆相同
     total_df = pd.read_excel(config.xls_path)
+    total_df = total_df[total_df['review_len']<=500]
+    total_df = total_df[total_df['summary_len']<=20]
+    # reveiw_len <= 500 and summary_len<= 20: 469335
+
     # total_df = total_df[total_df['review_len']<=500]
     # total_df = total_df[total_df['summary_len']<=20]
-    # reveiw_len <= 500 and summary_len<= 20: 469335
+    # total_df = total_df[abs(total_df['summary_polarity'])>0.1]
+    # total_df = total_df[total_df['summary_subjectivity']>0.25]
+    # reveiw_len <= 500 and summary_len<= 20 and 
+    # summary_polarity > 0.1 and 
+    # summary_subjectivity > 0.25 :  494635
+
+
     total_df = total_df.sort_values(by=['review_len','overlap'], ascending = False)
     train_df, val_df = train_test_split(total_df, test_size=0.1, 
                                         random_state=0, shuffle=True)

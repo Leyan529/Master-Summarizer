@@ -41,7 +41,7 @@ parser.add_argument('--keywords', type=str, default='POS_keys',
 parser.add_argument('--lr', type=float, default=0.0001)
 parser.add_argument('--rand_unif_init_mag', type=float, default=0.02)
 parser.add_argument('--trunc_norm_init_std', type=float, default=0.001)
-parser.add_argument('--mle_weight', type=float, default=0.5)
+parser.add_argument('--mle_weight', type=float, default=0.7)
 parser.add_argument('--gound_truth_prob', type=float, default=0.1)
 
 parser.add_argument('--max_enc_steps', type=int, default=500)
@@ -58,7 +58,7 @@ parser.add_argument('--gradient_accum', type=int, default=1)
 
 parser.add_argument('--load_ckpt', type=str, default='', help='0002000')
 parser.add_argument('--word_emb_type', type=str, default='word2Vec', help='word2Vec/glove/FastText')
-parser.add_argument('--pre_train_emb', type=bool, default=False, help = 'True/False') # 若pre_train_emb為false, 則emb type為NoPretrain
+parser.add_argument('--pre_train_emb', type=bool, default=True, help = 'True/False') # 若pre_train_emb為false, 則emb type為NoPretrain
 
 
 opt = parser.parse_args(args=[])
@@ -96,7 +96,7 @@ from parallel import DataParallelModel, DataParallelCriterion
 load_step = None
 model = Model(pre_train_emb=config.pre_train_emb, 
               word_emb_type = config.word_emb_type, 
-              vocab = None)
+              vocab = vocab)
 
 # model = model.cuda()
 optimizer = T.optim.Adam(model.parameters(), lr=config.lr)   
@@ -149,45 +149,31 @@ if not eval_model:
 # In[5]:
 
 
-# def to_sents(enc_out, inds, vocab, art_oovs):
-#     decoded_strs = []
-#     for i in range(len(enc_out)):
-#         id_list = inds[i].tolist() # 取出每個sample sentence 的word id list
-#         S = output2words(id_list, vocab, art_oovs[i]) #Generate sentence corresponding to sampled words
-#         try:
-#             end_idx = S.index(data.STOP_DECODING)
-#             S = S[:end_idx]
-#         except ValueError:
-#             S = S
-#         if len(S) < 2:          #If length of sentence is less than 2 words, replace it with "xxx"; Avoids setences like "." which throws error while calculating ROUGE
-#             S = ["xxx"]
-#         S = " ".join(S)
-#         decoded_strs.append(S)
-#     return decoded_strs
+def to_sents(enc_out, inds, vocab, art_oovs):
+    decoded_strs = []
+    for i in range(len(enc_out)):
+        id_list = inds[i].tolist() # 取出每個sample sentence 的word id list
+        S = output2words(id_list, vocab, art_oovs[i]) #Generate sentence corresponding to sampled words
+        try:
+            end_idx = S.index(data.STOP_DECODING)
+            S = S[:end_idx]
+        except ValueError:
+            S = S
+        if len(S) < 2:          #If length of sentence is less than 2 words, replace it with "xxx"; Avoids setences like "." which throws error while calculating ROUGE
+            S = ["xxx"]
+        S = " ".join(S)
+        decoded_strs.append(S)
+    return decoded_strs
 
 # def merge_res(res):
 #     ((inds1, log_probs1, enc_out1),(inds2, log_probs2, enc_out2)) = res
 #     inds = T.cat([inds1, inds2], dim = 0).cpu()
 #     enc_out = T.cat([enc_out1, enc_out2], dim = 0).cpu()
 #     if type(log_probs1) != list:
-#         log_probs = T.cat([log_probs1, log_probs2], dim = 0).cpu()
+#         log_probs = T.cat([log_probs1, log_probs2], dim = 0)
 #         return inds, log_probs, enc_out
 #     else:
 #         return inds, _, enc_out
-
-def merge_res(res):
-    ((rl_loss1, batch_reward1),(rl_loss2, batch_reward2)) = res
-    # rl_loss = T.cat([rl_loss1, rl_loss2], dim = 0).cpu()
-    # batch_reward = T.cat([batch_reward1, batch_reward2], dim = 0).cpu()
-
-    rl_loss = (rl_loss1 + rl_loss2) / 2
-    batch_reward = (batch_reward1 + batch_reward2) / 2
-    # if type(log_probs1) != list:
-    #     log_probs = T.cat([log_probs1, log_probs2], dim = 0).cpu()
-    #     return inds, log_probs, enc_out
-    # else:
-    #     return inds, _, enc_out    
-    return rl_loss, batch_reward
 
 def train_one_rl(package, inputs):
     config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, extra_zeros, enc_batch_extend_vocab, ct_e,                                 max_dec_len, dec_batch, target_batch = package
@@ -308,12 +294,85 @@ def calc_running_avg_loss(loss, running_avg_loss, decay=0.99):
 
 # del parallel_model, parallel_loss
 
+# import pandas as pd
+# import time
+# from utils.seq2seq.write_result import total_evaulate, total_output
+
+# @torch.autograd.no_grad()
+# def decode_write_all(writer, logger, epoch, config, model, dataloader, mode):
+#     # 動態取batch
+#     num = len(dataloader)
+#     avg_rouge_1, avg_rouge_2, avg_rouge_l  = [], [], []
+#     avg_self_bleu1, avg_self_bleu2, avg_self_bleu3, avg_self_bleu4 = [], [], [], []
+#     avg_bleu1, avg_bleu2, avg_bleu3, avg_bleu4 = [], [], [], []
+#     avg_meteor = []
+#     outFrame = None
+#     avg_time = 0
+        
+#     for idx, inputs in enumerate(dataloader):
+#         start = time.time() 
+# #         'Encoder data'
+#         enc_batch, enc_padding_mask, enc_lens, enc_batch_extend_vocab, extra_zeros, coverage, \
+#             ct_e, enc_key_batch, enc_key_mask, enc_key_lens = get_input_from_batch(inputs, config, batch_first = True)
+#         max_enc_len = max(T.max(enc_lens,dim=0)).tolist()[0] 
+        
+#         if (max_enc_len != max(enc_lens.tolist())[0]): continue
+
+#         enc_batch = model.embeds(enc_batch)  # Get embeddings for encoder input    
+#         enc_key_batch = model.embeds(enc_key_batch)  # Get key embeddings for encoder input
+
+#         enc_out, enc_hidden = model.encoder(enc_batch, enc_lens, max_enc_len)
+        
+# #         'Feed encoder data to predict'
+#         pred_ids = beam_search(enc_hidden, enc_out, enc_padding_mask, ct_e, extra_zeros, 
+#                                 enc_batch_extend_vocab, enc_key_batch, enc_key_mask, model, 
+#                                 START, END, UNKNOWN_TOKEN)
+
+#         article_sents, decoded_sents, keywords_list, ref_sents, long_seq_index = prepare_result(vocab, inputs, pred_ids)
+#         cost = (time.time() - start)
+#         avg_time += cost        
+
+        
+#         rouge_1, rouge_2, rouge_l, self_Bleu_1, self_Bleu_2, self_Bleu_3, self_Bleu_4,             Bleu_1, Bleu_2, Bleu_3, Bleu_4, Meteor, batch_frame = total_evaulate(article_sents, keywords_list, decoded_sents, ref_sents)
+        
+#         if idx %1000 ==0 and idx >0 : print(idx)
+#         if idx == 0: outFrame = batch_frame
+#         else: outFrame = pd.concat([outFrame, batch_frame], axis=0, ignore_index=True) 
+#         # ----------------------------------------------------
+#         avg_rouge_1.extend(rouge_1)
+#         avg_rouge_2.extend(rouge_2)
+#         avg_rouge_l.extend(rouge_l)   
+        
+#         avg_self_bleu1.extend(self_Bleu_1)
+#         avg_self_bleu2.extend(self_Bleu_2)
+#         avg_self_bleu3.extend(self_Bleu_3)
+#         avg_self_bleu4.extend(self_Bleu_4)
+        
+#         avg_bleu1.extend(Bleu_1)
+#         avg_bleu2.extend(Bleu_2)
+#         avg_bleu3.extend(Bleu_3)
+#         avg_bleu4.extend(Bleu_4)
+#         avg_meteor.extend(Meteor)
+#         # ----------------------------------------------------    
+#     avg_time = avg_time / (num * config.batch_size) 
+    
+#     avg_rouge_l, outFrame = total_output(mode, writerPath, outFrame, avg_time, avg_rouge_1, avg_rouge_2, avg_rouge_l,         avg_self_bleu1, avg_self_bleu2, avg_self_bleu3, avg_self_bleu4,         avg_bleu1, avg_bleu2, avg_bleu3, avg_bleu4, avg_meteor
+#     )
+    
+#     return avg_rouge_l, outFrame
+
+
+# In[8]:
+
+
+# del parallel_model, parallel_loss
+
 import pandas as pd
 import time
 from utils.seq2seq.write_result import total_evaulate, total_output
 
 @torch.autograd.no_grad()
-def decode_write_all(writer, logger, epoch, config, model, dataloader, mode):
+def decode(writer, dataloader, epoch):
     # 動態取batch
     num = len(dataloader)
     avg_rouge_1, avg_rouge_2, avg_rouge_l  = [], [], []
@@ -331,14 +390,14 @@ def decode_write_all(writer, logger, epoch, config, model, dataloader, mode):
         
         if (max_enc_len != max(enc_lens.tolist())[0]): continue
 
-        enc_batch = model.embeds(enc_batch)  # Get embeddings for encoder input    
-        enc_key_batch = model.embeds(enc_key_batch)  # Get key embeddings for encoder input
+        enc_batch = parallel_model.module.embeds(enc_batch)  # Get embeddings for encoder input    
+        enc_key_batch = parallel_model.module.embeds(enc_key_batch)  # Get key embeddings for encoder input
 
-        enc_out, enc_hidden = model.encoder(enc_batch, enc_lens, max_enc_len)
+        enc_out, enc_hidden = parallel_model.module.encoder(enc_batch, enc_lens, max_enc_len)
         
 #         'Feed encoder data to predict'
         pred_ids = beam_search(enc_hidden, enc_out, enc_padding_mask, ct_e, extra_zeros, 
-                                enc_batch_extend_vocab, enc_key_batch, enc_key_mask, model, 
+                                enc_batch_extend_vocab, enc_key_batch, enc_key_mask, parallel_model.module, 
                                 START, END, UNKNOWN_TOKEN)
 
         article_sents, decoded_sents, keywords_list, ref_sents, long_seq_index = prepare_result(vocab, inputs, pred_ids)
@@ -348,7 +407,7 @@ def decode_write_all(writer, logger, epoch, config, model, dataloader, mode):
         
         rouge_1, rouge_2, rouge_l, self_Bleu_1, self_Bleu_2, self_Bleu_3, self_Bleu_4,             Bleu_1, Bleu_2, Bleu_3, Bleu_4, Meteor, batch_frame = total_evaulate(article_sents, keywords_list, decoded_sents, ref_sents)
         
-        if idx %1000 ==0 and idx >0 : print(idx)
+        if idx %1000 ==0 and idx >0 : print(idx); break
         if idx == 0: outFrame = batch_frame
         else: outFrame = pd.concat([outFrame, batch_frame], axis=0, ignore_index=True) 
         # ----------------------------------------------------
@@ -367,15 +426,85 @@ def decode_write_all(writer, logger, epoch, config, model, dataloader, mode):
         avg_bleu4.extend(Bleu_4)
         avg_meteor.extend(Meteor)
         # ----------------------------------------------------    
-    avg_time = avg_time / (num * config.batch_size) 
+    avg_time = avg_time / (num * config.batch_size)    
     
-    avg_rouge_l, outFrame = total_output(mode, writerPath, outFrame, avg_time, avg_rouge_1, avg_rouge_2, avg_rouge_l,         avg_self_bleu1, avg_self_bleu2, avg_self_bleu3, avg_self_bleu4,         avg_bleu1, avg_bleu2, avg_bleu3, avg_bleu4, avg_meteor
+    scalar_acc = {
+        'rouge_1':sum(avg_rouge_l) / len(avg_rouge_l),
+        'rouge_2':sum(avg_rouge_2) / len(avg_rouge_2),
+        'rouge_l':sum(avg_rouge_l) / len(avg_rouge_l),
+        
+        'bleu1':sum(avg_bleu1) / len(avg_bleu1),
+        'bleu2':sum(avg_bleu2) / len(avg_bleu2),
+        'bleu3':sum(avg_bleu3) / len(avg_bleu3),
+        'bleu4':sum(avg_bleu4) / len(avg_bleu4),
+        
+        'meteor':sum(avg_meteor) / len(avg_meteor)
+    }
+    
+    for scalar_name, accuracy in scalar_acc.items():
+        if 'rouge' in scalar_name:
+            writer.add_scalars('scalar/rouge',  
+               {scalar_name: accuracy,
+               }, epoch)
+        elif 'bleu' in scalar_name:
+            writer.add_scalars('scalar/bleu',  
+               {scalar_name: accuracy,
+               }, epoch)
+        else:
+            writer.add_scalars('scalar/meteor',  
+               {scalar_name: accuracy,
+               }, epoch)
+    
+    # -----------------------------------------------------------
+    total_output(epoch, 'test', writerPath, outFrame, avg_time, avg_rouge_1, avg_rouge_2, avg_rouge_l,         avg_self_bleu1, avg_self_bleu2, avg_self_bleu3, avg_self_bleu4,         avg_bleu1, avg_bleu2, avg_bleu3, avg_bleu4, avg_meteor
     )
-    
-    return avg_rouge_l, outFrame
+    # -----------------------------------------------------------
+    outFrame = outFrame.sort_values(by=['rouge_l'], ascending=False)
+    big_frame = outFrame.head()
+    small_frame = outFrame.tail()    
+    # -----------------------------------------------------------
+    i = 0
+    for view_item in big_frame.to_dict('records'):
+        writer.add_text('BigTest/epoch_%s/##%s' % (epoch, i),
+                        "### rouge_l : &nbsp;&nbsp;&nbsp;\
+                        " + str(view_item['rouge_l']), epoch)
+        writer.add_text('BigTest/epoch_%s/##%s' % (epoch, i),
+                        "### decoded : &nbsp;&nbsp;&nbsp;\
+                        " + view_item['decoded'], epoch)
+        writer.add_text('BigTest/epoch_%s/##%s' % (epoch, i),
+                        "### reference : &nbsp;&nbsp;&nbsp;\
+                        " + view_item['reference'], epoch)
+        writer.add_text('BigTest/epoch_%s/##%s' % (epoch, i),
+                        "### keywords : &nbsp;&nbsp;&nbsp;\
+                        " + view_item['keywords'], epoch)
+        writer.add_text('BigTest/epoch_%s/##%s' % (epoch, i),
+                        "### article : &nbsp;&nbsp;&nbsp;\
+                        " + view_item['article'], epoch)
+
+        i += 1
+    # -----------------------------------------------------------
+    i = 0
+    for view_item in small_frame.to_dict('records'):
+        writer.add_text('SmallTest/epoch_%s/##%s' % (epoch, i),
+                        "### rouge_l : &nbsp;&nbsp;&nbsp;\
+                        " + str(view_item['rouge_l']), epoch)
+        writer.add_text('SmallTest/epoch_%s/##%s' % (epoch, i),
+                        "### decoded : &nbsp;&nbsp;&nbsp;\
+                        " + view_item['decoded'], epoch)
+        writer.add_text('SmallTest/epoch_%s/##%s' % (epoch, i),
+                        "### reference : &nbsp;&nbsp;&nbsp;\
+                        " + view_item['reference'], epoch)
+        writer.add_text('SmallTest/epoch_%s/##%s' % (epoch, i),
+                        "### keywords : &nbsp;&nbsp;&nbsp;\
+                        " + view_item['keywords'], epoch)
+        writer.add_text('SmallTest/epoch_%s/##%s' % (epoch, i),
+                        "### article : &nbsp;&nbsp;&nbsp;\
+                        " + view_item['article'], epoch)
+        i += 1
+    return outFrame
 
 
-# In[8]:
+# In[9]:
 
 
 import time
@@ -384,6 +513,8 @@ decode_st, decode_cost = 0,0
 last_save_step = 0
 from pytorchtools import EarlyStopping
 
+print_step = 250
+# save_steps = print_step
 if not eval_model:
 
     write_train_para(writer, config)
@@ -391,9 +522,9 @@ if not eval_model:
     running_avg_loss, running_avg_rl_loss = 0, 0
     sum_total_reward = 0
     step = 0
-    print_step = 250
+    
     # initialize the early_stopping object
-    early_stopping = EarlyStopping(patience=3, verbose=True)
+    early_stopping = EarlyStopping(config, logger, vocab, loggerName, patience=3, verbose=True)
     try:
         for epoch in range(1, config.max_epochs+1):
             for batch in train_loader:
@@ -401,8 +532,6 @@ if not eval_model:
                 loss_st = time.time()
                 inner_c, package = get_package(batch)
                 if inner_c: continue
-#                 print('outer_c',package[1] != max(package[4].tolist())[0])
-#                 if (package[1] != (max(package[4].tolist())[0])): continue
                 parallel_model.module.train()
                 mle_loss, pred_probs = train_one(package)
                 if config.train_rl:
@@ -420,13 +549,8 @@ if not eval_model:
                     sum_total_reward += batch_reward
                 else:
                     rl_loss = T.FloatTensor([0]).cuda()
-                
-                if config.train_rl:
-                    # (config.mle_weight * mle_loss).backward(retain_graph=True) # mle反向传播，计算当前梯度
-                    # (config.rl_weight * rl_loss).backward() # rl 反向传播，计算当前梯度
-                    (config.mle_weight * mle_loss + config.rl_weight * rl_loss).backward()  # 反向传播，计算当前梯度
-                else:
-                    (config.mle_weight * mle_loss + config.rl_weight * rl_loss).backward()  # 反向传播，计算当前梯度
+
+                (config.mle_weight * mle_loss + config.rl_weight * rl_loss).backward()  # 反向传播，计算当前梯度
 
                 '''梯度累加就是，每次获取1个batch的数据，计算1次梯度，梯度不清空'''
                 if step % (config.gradient_accum) == 0: # gradient accumulation
@@ -464,7 +588,7 @@ if not eval_model:
                                {'running_avg_rl_loss': running_avg_rl_loss
                                }, step)
                                                     
-
+                
                 if step % save_steps == 0:
                     parallel_model.module.eval()
                     logger.info('epoch : %s' % epoch)
@@ -485,31 +609,17 @@ if not eval_model:
                         'test_avg_loss': val_avg_loss
                        }, epoch)
                     last_save_step = step
-    #             if step%1000 == 0 and step > 0:
-    #                 decode_st = time.time()
-    #                 train_rouge_l_f = decode(writer, logger, step, config, model, batch, mode = 'train') # call batch by validate_loader
-    #                 test_rouge_l_f = decode(writer, logger, step, config, model, validate_loader, mode = 'test') # call batch by validate_loader
-    #                 decode_cost = time.time() - decode_st
-    #                 if step%save_steps == 0: logger.info('epoch %d|step %d| decode cost = %f ms'% (epoch, step, decode_cost))
+                    test_outFrame = decode(writer, validate_loader, epoch)                   
 
-    #                 writer.add_scalars('scalar/Rouge-L',  
-    #                    {'train_rouge_l_f': train_rouge_l_f,
-    #                     'test_rouge_l_f': test_rouge_l_f
-    #                    }, step)
-    #                 logger.info('epoch %d: %d, train_rouge_l_f = %f, test_rouge_l_f = %f'
-    #                                 % (epoch, step, train_rouge_l_f, test_rouge_l_f))
-    #         break
             logger.info('-------------------------------------------------------------')
-    #         train_avg_acc = avg_acc(writer, logger, epoch, config, model, train_loader, mode = 'train')
-    #         test_avg_acc = avg_acc(writer, logger, epoch, config, model, validate_loader, mode = 'test')                   
-    #         logger.info('epoch %d|step %d| train_avg_acc = %f, test_avg_acc = %f' % (epoch, step, train_avg_acc, test_avg_acc))
+
             if running_avg_reward > 0:
                 logger.info('epoch %d|step %d| running_avg_reward = %f'% (epoch, step, running_avg_reward))
             if running_avg_rl_loss != 0:
                 logger.info('epoch %d|step %d| running_avg_rl_loss = %f'% (epoch, step, running_avg_rl_loss))
             logger.info('-------------------------------------------------------------')
 
-            early_stopping(val_avg_loss) # update patience
+            early_stopping(parallel_model, optimizer, step, val_avg_loss) # update patience
             if early_stopping.early_stop:
                 logger.info("Early stopping epoch %s"%(epoch))
                 break
@@ -522,38 +632,43 @@ if not eval_model:
         logger.info(u'------Training END--------')   
         logger.info("stopping epoch %s"%(epoch))        
         logger.info("last_save_step %s"%(last_save_step))  
+        '''先將test_avg_acc調起來再decode train_'''
+    #     train_avg_acc, train_outFrame = decode_write_all(writer, logger, epoch, config, model, train_loader, mode = 'train')
+#         test_avg_acc, test_outFrame = decode_write_all(writer, logger, epoch, config, parallel_model.module, validate_loader, mode = 'test')
+    #     logger.info('epoch %d: train_avg_acc = %f, test_avg_acc = %f' % (epoch, train_avg_acc, test_avg_acc)) 
+#         logger.info('epoch %d: test_avg_acc = %f' % (load_ep, test_avg_acc)) 
         removeLogger(logger)
 
-else: # EVAL
-    load_ep = float(config.load_ckpt) / float(save_steps)
-    config.batch_size = 32
-    train_loader, validate_loader, vocab = getDataLoader(logger, config)
-    train_batches = len(iter(train_loader))
-    test_batches = len(iter(validate_loader))
-#     save_steps = int(train_batches/250)*250
-    model.cuda(eval_gpu) 
-    model.eval()
-    '''先將test_avg_acc調起來再decode train_'''
-#     train_avg_acc, train_outFrame = decode_write_all(writer, logger, load_ep, config, model, train_loader, mode = 'train')
-    test_avg_acc, test_outFrame = decode_write_all(writer, logger, load_ep, config, model, validate_loader, mode = 'test')
-#     logger.info('epoch %d: train_avg_acc = %f, test_avg_acc = %f' % (load_ep, train_avg_acc, test_avg_acc)) 
-    logger.info('epoch %d: test_avg_acc = %f' % (load_ep, test_avg_acc)) 
-    removeLogger(logger)
+# else: # EVAL
+#     load_ep = float(config.load_ckpt) / float(save_steps)
+#     config.batch_size = 32
+#     train_loader, validate_loader, vocab = getDataLoader(logger, config)
+#     train_batches = len(iter(train_loader))
+#     test_batches = len(iter(validate_loader))
+# #     save_steps = int(train_batches/250)*250
+#     model.cuda(eval_gpu) 
+#     model.eval()
+#     '''先將test_avg_acc調起來再decode train_'''
+# #     train_avg_acc, train_outFrame = decode_write_all(writer, logger, load_ep, config, model, train_loader, mode = 'train')
+#     test_avg_acc, test_outFrame = decode_write_all(writer, logger, load_ep, config, model, validate_loader, mode = 'test')
+# #     logger.info('epoch %d: train_avg_acc = %f, test_avg_acc = %f' % (load_ep, train_avg_acc, test_avg_acc)) 
+#     logger.info('epoch %d: test_avg_acc = %f' % (load_ep, test_avg_acc)) 
+#     removeLogger(logger)
 
 
-# In[ ]:
+# In[10]:
 
 
 test_outFrame.columns
 
 
-# In[ ]:
+# In[11]:
 
 
 test_outFrame[test_outFrame["rouge_1"]>=0.4][['rouge_1','article', 'reference', 'decoded', 'gen_type','overlap']]
 
 
-# In[ ]:
+# In[12]:
 
 
 # batch_16 epoch_6

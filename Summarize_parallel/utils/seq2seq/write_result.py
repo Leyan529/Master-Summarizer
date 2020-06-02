@@ -306,7 +306,7 @@ def total_evaulate(article_sents, keywords_list, decoded_sents, ref_sents):
     return rouge_1, rouge_2, rouge_l, self_Bleu_1, self_Bleu_2, self_Bleu_3, self_Bleu_4, \
             Bleu_1, Bleu_2, Bleu_3, Bleu_4, Meteor, batch_frame 
 
-def total_output(mode, writerPath, outFrame, avg_time, avg_rouge_1, avg_rouge_2, avg_rouge_l, \
+def total_output(epoch, mode, writerPath, outFrame, avg_time, avg_rouge_1, avg_rouge_2, avg_rouge_l, \
     avg_self_bleu1, avg_self_bleu2, avg_self_bleu3, avg_self_bleu4, \
     avg_bleu1, avg_bleu2, avg_bleu3, avg_bleu4, avg_meteor
     ):
@@ -330,7 +330,7 @@ def total_output(mode, writerPath, outFrame, avg_time, avg_rouge_1, avg_rouge_2,
     avg_meteor = sum(avg_meteor)/len(avg_meteor)  
     
     # avg_time = avg_time / (num * config.batch_size) 
-    with open(writerPath + '/%s_res.txt'% mode, 'w', encoding='utf-8') as f:
+    with open(writerPath + '/%s_%s_res.txt'% (mode, epoch), 'w', encoding='utf-8') as f:
         f.write('Accuracy result:\n')
         f.write('##-- Rouge --##\n')
         f.write('%sing_avg_rouge_1: %s \n'%(mode, avg_rouge_1))
@@ -356,8 +356,8 @@ def total_output(mode, writerPath, outFrame, avg_time, avg_rouge_1, avg_rouge_2,
     # --------------------------------------     
     outFrame = outFrame.sort_values(by=['article_lens'], ascending = False)
     writeFrame = outFrame[:1000]
-    writeFrame.to_excel(writerPath + '/%s_output.xls'% mode)
+    writeFrame.to_excel(writerPath + '/%s_%s_output.xls'% (mode, epoch))
     
-    read_info = open(writerPath + '/%s_res.txt'% mode, 'r', encoding='utf-8').readlines()
+    read_info = open(writerPath + '/%s_%s_res.txt'% (mode, epoch), 'r', encoding='utf-8').readlines()
     print(mode,'\n',read_info)
     return avg_rouge_l, outFrame
