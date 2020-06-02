@@ -12,7 +12,7 @@ from data_util.mainCat import *
 from data_util.mixCat import *
 from data_util.MongoDB import *
 
-from data_util.process import review_clean, summary_clean, stopwords, opinion_lexicon
+from data_util.process import review_clean, summary_clean, stopwords, opinion_lexicon, squeeze
 from data_util.extract_key import extract_POS, extract_DEP, noun_adj
 
 #%%
@@ -77,10 +77,10 @@ elif mode == 'mixCat':
     # mongoObj = Mixbig_5()
     '''compare'''
     # mongoObj = Mix6()
-    mongoObj = Mixbig_Elect_30()
+    # mongoObj = Mixbig_Elect_30()
     # mongoObj = Mixbig_Books_3()
     # mongoObj = Pure_kitchen()
-    # mongoObj = Pure_Cloth()
+    mongoObj = Pure_Cloth()
     
     main_cat = mongoObj.getAttr()
     print("make data dict from Mix cat : %s " % (main_cat))
@@ -389,6 +389,13 @@ if not os.path.exists(csv_path):
             review_ID , review , summary = \
             data_dict['review_ID'], data_dict['review'], data_dict['summary']
 
+            # -------------------------------------------------------------  
+            summary_blob = TextBlob(summary.replace("<s> ",'').replace(" </s>",''))
+            summary_polarity = abs(summary_blob.sentiment.polarity)
+            summary_subjectivity = summary_blob.sentiment.subjectivity
+            if summary_polarity == 0: continue
+            if summary_subjectivity == 0: continue
+            # -------------------------------------------------------------  
             rev_tokens, summ_tokens = review.split(" "), summary.split(" ")
 
             rev_token_set = set(rev_tokens)
@@ -434,9 +441,7 @@ if not os.path.exists(csv_path):
             if (overlap_sent_id == 0) and (percent_lcs >= 20): overlap_pos = 0 # overlap_Top 
             elif (overlap_sent_id == len(rev_tokens)-1) and (percent_lcs >= 20): overlap_pos = 1 # overlap_Final 
             elif (percent_lcs >= 20): overlap_pos = 2 # overlap_other 
-            else: overlap_pos = -1 # no overlap 
-            # -------------------------------------------------------------  
-            summary_blob = TextBlob(summary.replace("<s> ",'').replace(" </s>",''))
+            else: overlap_pos = -1 # no overlap             
             # -------------------------------------------------------------
             rating = data_dict['overall']
             save_dict = {
@@ -539,7 +544,7 @@ def make_corpus():
     with open(corpus_path,'r',encoding='utf-8') as f:
         lines = f.readlines()
         for line in lines:
-            line = squeeze2(line)
+            line = squeeze(line)
             tokens = line.replace("\n",'').replace("<s>",'').replace("</s>",'').split(" ")
             # tokens = [token for token in tokens if (token != '' and token.isalpha() and token not in alphbet_stopword)]
             tokens = [token for token in tokens if (token != '' )] # => 最佳
