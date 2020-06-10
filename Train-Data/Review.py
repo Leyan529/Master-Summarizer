@@ -76,11 +76,11 @@ elif mode == 'mixCat':
     # mongoObj = Mix12()
     # mongoObj = Mixbig_5()
     '''compare'''
-    # mongoObj = Mix6()
+    mongoObj = Mix6()
     # mongoObj = Mixbig_Elect_30()
     # mongoObj = Mixbig_Books_3()
     # mongoObj = Pure_kitchen()
-    mongoObj = Pure_Cloth()
+    # mongoObj = Pure_Cloth()
     
     main_cat = mongoObj.getAttr()
     print("make data dict from Mix cat : %s " % (main_cat))
@@ -160,6 +160,7 @@ def make_review(df):
     docCount = len(df)            
     asin_list, review_list, overall_list, vote_list, summary_list, review_ID_list , cheat_num_list = [] , [] , [] , [] , [] , [] , []
     lemm_review_len_list , lemm_summary_len_list = [] , [] 
+    orign_review_list, orign_summary_list = [], []
 
     with tqdm(total=docCount) as pbar:
 
@@ -197,9 +198,12 @@ def make_review(df):
             review_ID_list.append(review_ID)
             lemm_review_len_list.append(lemm_review_len)
             lemm_summary_len_list.append(lemm_summary_len)   
+            orign_review_list.append(review)
+            orign_summary_list.append(summary)
 
-        df = pd.DataFrame({"asin":asin_list, "review": review_list, "overall": overall_list, "vote": vote_list,
-                            "summary": summary_list , "review_ID": review_ID_list, 
+        df = pd.DataFrame({"asin":asin_list,"orign_review": orign_review_list, "orign_summary": orign_summary_list,
+                             "review": review_list, "summary": summary_list ,                            
+                            "overall": overall_list, "vote": vote_list, "review_ID": review_ID_list, 
                             "lemm_review_len": lemm_review_len_list , "lemm_summary_len": lemm_summary_len_list
                             })
         corpus.close()
@@ -386,8 +390,8 @@ if not os.path.exists(csv_path):
             series = df.iloc[idx]
             data_dict = series.to_dict()
 
-            review_ID , review , summary = \
-            data_dict['review_ID'], data_dict['review'], data_dict['summary']
+            review_ID , review , summary , orign_review, orign_summary = \
+            data_dict['review_ID'], data_dict['review'], data_dict['summary'], data_dict['orign_review'], data_dict['orign_summary']
 
             # -------------------------------------------------------------  
             summary_blob = TextBlob(summary.replace("<s> ",'').replace(" </s>",''))
@@ -445,10 +449,12 @@ if not os.path.exists(csv_path):
             # -------------------------------------------------------------
             rating = data_dict['overall']
             save_dict = {
-                "review_ID": review_ID,
+                "review_ID": str(review_ID),
                 "rating": rating,
                 "vote": data_dict['vote'],
                 "binaryrating": 'positive' if rating >=4 else 'negative',
+                "orign_review": orign_review,
+                'orign_summary':orign_summary,
                 "review": review.strip(),
                 "summary": summary.strip(),
                 "cheat": cheat,
@@ -534,7 +540,16 @@ with open('%s/cond_statistic/data_info.txt'%(folder),'w') as f:
 amount = len(df)
 print('Total data : %s'%(amount))  
     
-
+def clean_wordlist(wordlist):
+    wordlist = [
+        ''.join(re.findall(r'[A-Za-z]', word)) \
+        if (word.isalnum() and not (word.isdigit()))
+        else word
+        for word in wordlist
+    ]
+    wordlist = [token for token in wordlist if (token != '' )] 
+    return wordlist
+    
 # Ready Embedding Corpus
 from collections import Counter, OrderedDict
 def make_corpus():
@@ -547,7 +562,8 @@ def make_corpus():
             line = squeeze(line)
             tokens = line.replace("\n",'').replace("<s>",'').replace("</s>",'').split(" ")
             # tokens = [token for token in tokens if (token != '' and token.isalpha() and token not in alphbet_stopword)]
-            tokens = [token for token in tokens if (token != '' )] # => 最佳
+            tokens = clean_wordlist(tokens)
+            # tokens = [token for token in tokens if (token != '' )] # => 最佳
             corpus.append(tokens)
             embedding_corpus.append(tokens)
     print('make corpus finished...')
@@ -608,7 +624,7 @@ def bulid_word2Vec_vocab(wvmodel):
 
 wvmodel = train_word2Vec(vector_size = 300)
 bulid_word2Vec_vocab(wvmodel)
-train_word2Vec(vector_size = 512)
+# train_word2Vec(vector_size = 512)
 # train_word2Vec(vector_size = 768)
 
 
@@ -653,7 +669,7 @@ def bulid_FastText_vocab(wvmodel):
 
 wvmodel = train_FastText(vector_size = 300)
 bulid_FastText_vocab(wvmodel)
-train_FastText(vector_size = 512)
+# train_FastText(vector_size = 512)
 # wvmodel = train_FastText(vector_size = 768)
 
 
@@ -707,7 +723,8 @@ def bulid_glove_vocab(glove_model):
         print("Writing vocab file...")
         with open(vocab_file, 'w',encoding='utf-8') as writer:
             for word, word_id in glove_model.dictionary.items():
-                writer.write(word + ' ' + str(word_id) + '\n') # Output vocab count                    
+                writer.write(word + ' ' + str(word_id) + '\n') # Output vocab count   
+                vocab_count += 1                 
         print("Finished writing vocab file %s" %(vocab_count))   
     else:
         print('Already get glove vocab')
@@ -715,7 +732,7 @@ def bulid_glove_vocab(glove_model):
 corpus = create_glove_corpus()
 glove = train_glove(corpus,vector_size=300)
 bulid_glove_vocab(glove)
-train_glove(corpus,vector_size=512)
+# train_glove(corpus,vector_size=512)
 # glove = train_glove(corpus,vector_size=768)
 
 
