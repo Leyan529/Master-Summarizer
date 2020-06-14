@@ -3,7 +3,7 @@
 # use opinion-lexicon-English
 # use data_util
 # In[1]:
-
+# python -m pip install --upgrade pip
 #%%
 # NEW_PROD_DICT 
 
@@ -147,7 +147,11 @@ if os.path.exists(csv_path):
     print("previous file %s ...."%(csv_path)) 
 else:
     df = make_orign_rev_xlsx()
-    df.to_excel(csv_path, encoding='utf8')
+    writer = pd.ExcelWriter(csv_path, encoding='utf8', engine='xlsxwriter')
+    #THIS
+    writer.book.use_zip64()
+    df.to_excel(writer, index = False)
+    # df.to_excel(csv_path, encoding='utf8', engine='xlsxwriter')
     print(csv_path + " Write finished") 
 
 import pandas as pd
@@ -200,6 +204,7 @@ def make_review(df):
             lemm_summary_len_list.append(lemm_summary_len)   
             orign_review_list.append(review)
             orign_summary_list.append(summary)
+            # break
 
         df = pd.DataFrame({"asin":asin_list,"orign_review": orign_review_list, "orign_summary": orign_summary_list,
                              "review": review_list, "summary": summary_list ,                            
@@ -232,7 +237,12 @@ csv_path = '%s/review.xlsx'%(folder)
 print("check review", os.path.exists(csv_path))
 if not os.path.exists(csv_path): 
     orign_key_df = make_review(df)
-    orign_key_df.to_excel(csv_path, encoding='utf8')
+    # orign_key_df.to_excel(csv_path, encoding='utf8', engine='xlsxwriter')
+
+    writer = pd.ExcelWriter(csv_path, encoding='utf8', engine='xlsxwriter')
+    #THIS
+    writer.book.use_zip64()
+    orign_key_df.to_excel(writer, index = False)
     print(csv_path + " Write finished")   
 else:    
     orign_key_df = pd.read_excel(csv_path)
@@ -486,7 +496,13 @@ if not os.path.exists(csv_path):
             pbar.set_description("%s pro review" % (folder))
 
         pro_df = pd.DataFrame.from_dict(pro_df, orient='index')
-        pro_df.to_excel(csv_path, encoding='utf8')
+
+        writer = pd.ExcelWriter(csv_path, encoding='utf8', engine='xlsxwriter')
+        #THIS
+        writer.book.use_zip64()
+        pro_df.to_excel(writer, index = False)
+
+        # pro_df.to_excel(csv_path, encoding='utf8', engine='xlsxwriter')
         print(csv_path + " Write finished")   
 
 csv_path = '%s/pro_review.xlsx'%(folder)   
