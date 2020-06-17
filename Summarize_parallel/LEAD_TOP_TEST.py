@@ -62,7 +62,7 @@ parser.add_argument('--pre_train_emb', type=bool, default=True)
 opt = parser.parse_args(args=[])
 config = re_config(opt)
 # loggerName, writerPath = getName(config)    
-loggerName = 'TextRank'
+loggerName = 'lead-Top'
 writerPath = 'runs/%s/%s/exp'% (config.data_type, loggerName)
 if not os.path.exists(writerPath): os.makedirs(writerPath)
 logger = getLogger(loggerName)
@@ -79,13 +79,15 @@ test_batches = len(iter(validate_loader))
 save_steps = int(train_batches/1000)*1000
 
 
-# In[3]:
+# In[5]:
 
 
 import pandas as pd
 import time
-from summa.summarizer import summarize
 from utils.seq2seq.write_result import total_evaulate, total_output
+
+# from nltk.translate.bleu_score import sentence_bleu
+# from nltk.translate.meteor_score import single_meteor_score
 
 @torch.autograd.no_grad()
 def decode_write_all(writer, logger, epoch, config, model, dataloader, mode):
@@ -99,9 +101,8 @@ def decode_write_all(writer, logger, epoch, config, model, dataloader, mode):
         start = time.time() 
         article_sents = [article for article in batch.original_article]
         ref_sents = [ref for ref in batch.original_abstract ]
-        decoded_sents = [summarize(article, words=30) for article in article_sents]
-        decoded_sents = [sent if len(sent) > 5 else "xxx xxx xxx xxx xxx" for sent in decoded_sents]
-        
+        decoded_sents = [article.split(" . ")[0] for article in article_sents]
+       
         keywords_list = [str(word_list) for word_list in batch.key_words]
         cost = (time.time() - start)
         avg_time += cost        
@@ -136,7 +137,7 @@ def decode_write_all(writer, logger, epoch, config, model, dataloader, mode):
     return scalar_acc['rouge_l_f'], outFrame
 
 
-# In[4]:
+# In[6]:
 
 
 epoch = 0
@@ -153,9 +154,14 @@ test_outFrame.head()
 removeLogger(logger)
 
 
-# In[5]:
+# In[7]:
 
 
-# centroid
-# textrank
+test_outFrame.head()
+
+
+# In[ ]:
+
+
+
 

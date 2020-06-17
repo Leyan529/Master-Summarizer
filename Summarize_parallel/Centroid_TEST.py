@@ -34,21 +34,21 @@ parser.add_argument('--copy', type=bool, default=True, help = 'True/False') # fo
 
 parser.add_argument('--model_type', type=str, default='seq2seq', choices=['seq2seq', 'transformer'])
 parser.add_argument('--train_rl', type=bool, default=True, help = 'True/False')
-parser.add_argument('--keywords', type=str, default='POS_keys', 
+parser.add_argument('--keywords', type=str, default='DEP_keys', 
                     help = 'POS_keys / DEP_keys / Noun_adj_keys / TextRank_keys')
 
 parser.add_argument('--lr', type=float, default=0.0001)
 parser.add_argument('--rand_unif_init_mag', type=float, default=0.02)
 parser.add_argument('--trunc_norm_init_std', type=float, default=0.001)
 parser.add_argument('--mle_weight', type=float, default=1.0)
-parser.add_argument('--gound_truth_prob', type=float, default=0.1)
+parser.add_argument('--gound_truth_prob', type=float, default=0.5)
 
 parser.add_argument('--max_enc_steps', type=int, default=1000)
 parser.add_argument('--max_dec_steps', type=int, default=50)
 parser.add_argument('--min_dec_steps', type=int, default=8)
 parser.add_argument('--max_epochs', type=int, default=10)
 parser.add_argument('--vocab_size', type=int, default=50000)
-parser.add_argument('--beam_size', type=int, default=16)
+parser.add_argument('--beam_size', type=int, default=5)
 parser.add_argument('--batch_size', type=int, default=8)
 
 parser.add_argument('--hidden_dim', type=int, default=512)
@@ -93,21 +93,17 @@ s = summarizer.Summarizer(model_path=model_path)
 def decode_write_all(writer, logger, epoch, config, model, dataloader, mode):
     # 動態取batch
     num = len(dataloader)
-    avg_rouge_1, avg_rouge_2, avg_rouge_l  = [], [], []
-    avg_self_bleu1, avg_self_bleu2, avg_self_bleu3, avg_self_bleu4 = [], [], [], []
-    avg_bleu1, avg_bleu2, avg_bleu3, avg_bleu4 = [], [], [], []
-    avg_meteor = []
     outFrame = None
-    avg_time = 0    
-#     rouge = Rouge()  
-
-    for idx, batch in enumerate(dataloader):
+    avg_time = 0
+    total_scores = dict()   
+    idx = 0 
+    for _, batch in enumerate(dataloader):
         start = time.time() 
         article_sents = [article for article in batch.original_article]
         ref_sents = [ref for ref in batch.original_abstract ]
         decoded_sents = [
-            # s.summarize(text=article, summary_length=1, query_based_token=batch.key_words[idx])[0] \
-            s.summarize(text=article, summary_length=1, query_based_token=None)[0]                 
+            s.summarize(text=article, summary_length=1, query_based_token=batch.key_words[idx])[0] \
+            # s.summarize(text=article, summary_length=1, query_based_token=None)[0]                 
             for idx, article in enumerate(article_sents)
         ]
         decoded_sents = [sent if len(sent) > 5 else "xxx xxx xxx xxx xxx" for sent in decoded_sents]
@@ -116,35 +112,34 @@ def decode_write_all(writer, logger, epoch, config, model, dataloader, mode):
         cost = (time.time() - start)
         avg_time += cost        
         try:
-            rouge_1, rouge_2, rouge_l, self_Bleu_1, self_Bleu_2, self_Bleu_3, self_Bleu_4,                 Bleu_1, Bleu_2, Bleu_3, Bleu_4, Meteor, batch_frame = total_evaulate(article_sents, keywords_list, decoded_sents, ref_sents)
+            # rouge_1, rouge_2, rouge_l, self_Bleu_1, self_Bleu_2, self_Bleu_3, self_Bleu_4,                 Bleu_1, Bleu_2, Bleu_3, Bleu_4, Meteor, batch_frame = total_evaulate(article_sents, keywords_list, decoded_sents, ref_sents)
+            multi_scores, batch_frame = total_evaulate(article_sents, keywords_list, decoded_sents, ref_sents)
         except Exception as e :
             continue
             
-        if idx %1000 ==0 and idx >0 : print(idx)
-        if idx == 0: outFrame = batch_frame
-        else: outFrame = pd.concat([outFrame, batch_frame], axis=0, ignore_index=True) 
-        # ----------------------------------------------------
-        avg_rouge_1.extend(rouge_1)
-        avg_rouge_2.extend(rouge_2)
-        avg_rouge_l.extend(rouge_l)   
-        
-        avg_self_bleu1.extend(self_Bleu_1)
-        avg_self_bleu2.extend(self_Bleu_2)
-        avg_self_bleu3.extend(self_Bleu_3)
-        avg_self_bleu4.extend(self_Bleu_4)
-        
-        avg_bleu1.extend(Bleu_1)
-        avg_bleu2.extend(Bleu_2)
-        avg_bleu3.extend(Bleu_3)
-        avg_bleu4.extend(Bleu_4)
-        avg_meteor.extend(Meteor)
+        if idx %1000 ==0 and idx >0 : 
+            print(idx); 
+        if idx == 0: 
+            outFrame = batch_frame; 
+            total_scores = multi_scores
+        else: 
+            outFrame = pd.concat([outFrame, batch_frame], axis=0, ignore_index=True) 
+            for key, scores in total_scores.items():
+                scores.extend(multi_scores[key])
+                total_scores[key] = scores
+        idx += 1
         # ----------------------------------------------------    
     avg_time = avg_time / (num * config.batch_size) 
     
-    avg_rouge_l, outFrame = total_output(mode, writerPath, outFrame, avg_time, avg_rouge_1, avg_rouge_2, avg_rouge_l,         avg_self_bleu1, avg_self_bleu2, avg_self_bleu3, avg_self_bleu4,         avg_bleu1, avg_bleu2, avg_bleu3, avg_bleu4, avg_meteor
+    scalar_acc = {}
+    num = 0
+    for key, scores in total_scores.items():
+        num = len(scores)
+        scalar_acc[key] = sum(scores)/len(scores)
+
+    total_output(0, mode, writerPath, outFrame, avg_time, num , scalar_acc
     )
-    
-    return avg_rouge_l, outFrame
+    return scalar_acc['rouge_l_f'], outFrame
 
 
 # In[ ]:
@@ -153,13 +148,13 @@ def decode_write_all(writer, logger, epoch, config, model, dataloader, mode):
 epoch = 0
 model = None
 # model    
-train_avg_acc, train_outFrame = decode_write_all(writer, logger, epoch, config, model, train_loader, mode = 'train')
+# train_avg_acc, train_outFrame = decode_write_all(writer, logger, epoch, config, model, train_loader, mode = 'train')
 logger.info('-----------------------------------------------------------')
 test_avg_acc, test_outFrame = decode_write_all(writer, logger, epoch, config, model, validate_loader, mode = 'test')
 logger.info('epoch %d: train_avg_acc = %f, test_avg_acc = %f' % (epoch, train_avg_acc, test_avg_acc))
 
 # !ipython nbconvert --to script Pointer_generator.ipynb
-train_outFrame.head()
+# train_outFrame.head()
 test_outFrame.head()
 removeLogger(logger)
 

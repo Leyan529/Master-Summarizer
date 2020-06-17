@@ -11,13 +11,13 @@ import numpy as np
 import sys
 from utils.seq2seq.initialize import *
 from utils.seq2seq.batcher import START,END, PAD , UNKNOWN_TOKEN
-from utils.seq2seq.rl_util import *
-import math, copy, time
+
+
 class Encoder(nn.Module):
     def __init__(self):
         super(Encoder, self).__init__()
 
-        self.lstm = nn.LSTM(config.emb_dim, config.hidden_dim, num_layers=1, batch_first=True, bidirectional=True, dropout=0.2)
+        self.lstm = nn.LSTM(config.emb_dim, config.hidden_dim, num_layers=1, batch_first=True, bidirectional=True)
         init_lstm_wt(self.lstm) # 初始话LSTM的隐层和细胞状态
 
         # 同样考虑向前层和向后层
@@ -26,11 +26,12 @@ class Encoder(nn.Module):
         self.reduce_c = nn.Linear(config.hidden_dim * 2, config.hidden_dim) # 细胞状态
         init_linear_wt(self.reduce_c)
 
+#     @torchsnooper.snoop()
     def forward(self, x, seq_lens, max_enc_len):
-        # Starting var:.. x = tensor<(1, 27, 256), float32, cuda:0, grad>
-        # Starting var:.. seq_lens = ndarray<(1,), int32>
-        # x.shape torch.Size([4, 55, 256])
-        # seq_lens.shape (4,)
+#         Starting var:.. x = tensor<(1, 27, 256), float32, cuda:0, grad>
+#         Starting var:.. seq_lens = ndarray<(1,), int32>
+#         x.shape torch.Size([4, 55, 256])
+#         seq_lens.shape (4,)
         # print(x.shape, seq_lens)
         self.lstm.flatten_parameters()
         seq_lens = seq_lens.view(-1).tolist()
@@ -58,55 +59,7 @@ class Encoder(nn.Module):
             c_reduced = c_reduced[1:]
         return enc_out, (h_reduced, c_reduced)
     
-class MultiHeadedAttention(nn.Module):
-    def __init__(self, h, d_model, dropout=0.1):
-        "初始化時指定頭數h和模型維度d_model"
-        super(MultiHeadedAttention, self).__init__()
-        # 二者是一定整除的
-        assert d_model % h == 0
-        # 按照文中的簡化，我們讓d_v與d_k相等
-        self.d_k = d_model // h
-        self.h = h
-        self.linears = self.clones(nn.Linear(d_model, d_model), 4)
-        self.attn = None
-        self.dropout = nn.Dropout(p=dropout)
 
-    def forward(self, query, key, value, mask=None, sum_temporal_srcs=None):
-        "實現多頭注意力模型"
-        if mask is not None:
-            # Same mask applied to all h heads.
-            mask = mask.unsqueeze(1)
-            mask = mask.unsqueeze(1)
-
-        nbatches = query.size(0)
-        "第二步是將這一批次的數據進行變形 d_model => h x d_k"
-        query, key, value = \
-            [l(x).view(nbatches, -1, self.h, self.d_k).transpose(1, 2)
-             for l, x in zip(self.linears, (query, key, value))]
-        "第三步，針對所有變量計算scaled dot product attention"
-        x, self.attn = self.attention(query, key, value, mask=mask, 
-                                 dropout=self.dropout)
-
-
-        x = x.transpose(1, 2).contiguous().view(nbatches, -1, self.h * self.d_k)
-        ct_e = self.linears[-1](x).squeeze(1)
-        return ct_e, self.attn.squeeze(2), sum_temporal_srcs
-
-    def attention(self, query, key, value, mask=None, dropout=None):
-        "Compute 'Scaled Dot Product Attention'"
-        d_k = query.size(-1)
-        scores = torch.matmul(query, key.transpose(-2, -1)) \
-                / math.sqrt(d_k)
-        if mask is not None:
-            scores = scores.masked_fill(mask == 0, -1e9)
-        p_attn = F.softmax(scores, dim = -1)
-        if dropout is not None:
-            p_attn = dropout(p_attn)
-        return torch.matmul(p_attn, value), p_attn
-
-    def clones(self, module, N):
-        "生成n個相同的層"
-        return nn.ModuleList([copy.deepcopy(module) for _ in range(N)])
 
 class encoder_attention(nn.Module):
 
@@ -115,7 +68,7 @@ class encoder_attention(nn.Module):
         self.W_h = nn.Linear(config.hidden_dim * 2, config.hidden_dim * 2, bias=False)
         self.W_s = nn.Linear(config.hidden_dim * 2, config.hidden_dim * 2)
         self.W_t = nn.Linear(config.emb_dim , config.hidden_dim*2)
-        self.v = nn.Linear(config.hidden_dim * 2, 1, bias=True)
+        self.v = nn.Linear(config.hidden_dim * 2, 1, bias=False)
 
 
     def forward(self, st_hat, h, enc_padding_mask, sum_temporal_srcs, sum_k_emb):
@@ -152,7 +105,7 @@ class encoder_attention(nn.Module):
             exp_et = T.exp(et)
             if sum_temporal_srcs is None:
                 et1 = exp_et # eq 3 if t = 1 condition
-                sum_temporal_srcs  = (T.FloatTensor(et.size()).fill_(1e-10)).cuda(et.device.index) + exp_et
+                sum_temporal_srcs  = T.FloatTensor(et.size()).fill_(1e-10) + exp_et
                 # sum_temporal_srcs  = get_cuda(T.FloatTensor(et.size()).fill_(1e-10)) + exp_et
             else:
                 et1 = exp_et/sum_temporal_srcs  # eq 3 otherwise condition   #batch_size, b_seq_len
@@ -162,8 +115,8 @@ class encoder_attention(nn.Module):
             et1 = F.softmax(et, dim=1)  # et = softmax(et)
         # et1 最後加權的attention score
         # assign 0 probability for padded elements
-        # print('et1',et1)
-        # print('enc_padding_mask',enc_padding_mask)
+#         print('et1',et1)
+#         print('enc_padding_mask',enc_padding_mask)
         # print('----------------------------')
         # enc_padding_mask = enc_padding_mask[:,:et1.size(1)]
         at = et1 * enc_padding_mask
@@ -191,7 +144,7 @@ class decoder_attention(nn.Module):
             self.W_prev = nn.Linear(config.hidden_dim, config.hidden_dim, bias=False)
             self.W_s = nn.Linear(config.hidden_dim, config.hidden_dim)
             self.W_t = nn.Linear(config.emb_dim , config.hidden_dim)
-            self.v = nn.Linear(config.hidden_dim, 1, bias=True)
+            self.v = nn.Linear(config.hidden_dim, 1, bias=False)
 
     def forward(self, s_t, prev_s, sum_k_emb):
         '''Perform intra_decoder attention
@@ -203,11 +156,11 @@ class decoder_attention(nn.Module):
         if config.intra_decoder is False:
             # ct_d = get_cuda(T.zeros(s_t.size())) # set c1_d to vector of zeros
             # ct_d = T.zeros(s_t.size()) # set c1_d to vector of zeros
-            ct_d = T.zeros(s_t.size()).cuda(s_t.device.index)     
+            ct_d = T.zeros(s_t.size()).to('cuda:%s'%(s_t.device.index))     
         elif prev_s is None:
             # ct_d = get_cuda(T.zeros(s_t.size()))
             # ct_d = T.zeros(s_t.size())
-            ct_d = T.zeros(s_t.size()).cuda(s_t.device.index) 
+            ct_d = T.zeros(s_t.size()).to('cuda:%s'%(s_t.device.index))  
             prev_s = s_t.unsqueeze(1)               #batch_size, 1, hid_size
         else:
             # Standard attention technique (eq 1 in Pointer-Generator Networks - https://arxiv.org/pdf/1704.04368.pdf)
@@ -233,8 +186,7 @@ class decoder_attention(nn.Module):
 class Decoder(nn.Module):
     def __init__(self):
         super(Decoder, self).__init__()
-        # self.enc_attention = encoder_attention()
-        self.enc_attention = MultiHeadedAttention(4, config.hidden_dim*2)
+        self.enc_attention = encoder_attention()
         self.dec_attention = decoder_attention()
         self.x_context = nn.Linear(config.hidden_dim*2 + config.emb_dim, config.emb_dim)
         self.x_key_context = nn.Linear(config.hidden_dim*2 + config.emb_dim*2, config.emb_dim)
@@ -245,11 +197,10 @@ class Decoder(nn.Module):
         init_lstm_wt(self.lstm)
 
         self.p_gen_linear = nn.Linear(config.hidden_dim * 5 + config.emb_dim, 1)
-        self.p_gen_dropout = nn.Dropout(p=0.2)
 
         #p_vocab
-        self.V = nn.Linear(config.hidden_dim*4, config.hidden_dim, bias=True)
-        self.V1 = nn.Linear(config.hidden_dim, config.vocab_size, bias=True)
+        self.V = nn.Linear(config.hidden_dim*4, config.hidden_dim)
+        self.V1 = nn.Linear(config.hidden_dim, config.vocab_size)
         init_linear_wt(self.V1)
 
     def forward(self, x_t, s_t, enc_out, enc_padding_mask, ct_e, extra_zeros, enc_batch_extend_vocab, sum_temporal_srcs, prev_s, key_x, key_mask):
@@ -268,9 +219,7 @@ class Decoder(nn.Module):
         dec_h, dec_c = s_t # s_t拆分為隱藏層狀態 dec_h 以及 序列語意向量 dec_c
         st_hat = T.cat([dec_h, dec_c], dim=1) # st_hat 由 隱藏層狀態dec_h 以及 序列語意向量 dec_c 拼接 => 2 * config.hidden_dim
         # 將拼接的 st_hat(dec_h & dec_c) 與 enc_out 計算出一個新的 attn_dist 並根據 attn_dist 計算出一個新的encoder語意向量 ct_e
-        # ct_e, attn_dist, sum_temporal_srcs = self.enc_attention(st_hat, enc_out, enc_padding_mask, sum_temporal_srcs, sum_k_emb)
-        ct_e, attn_dist, sum_temporal_srcs = self.enc_attention(st_hat, enc_out, enc_out, enc_padding_mask, sum_temporal_srcs)
-        # 指針p_gen和生成器vocab_dist共享第一注意頭attn_dist
+        ct_e, attn_dist, sum_temporal_srcs = self.enc_attention(st_hat, enc_out, enc_padding_mask, sum_temporal_srcs, sum_k_emb)
         # print('enc_ct_e',ct_e.shape);
         # 根據 當下的decoder hidden state 以及過去所有的 previous decoder hidden states 計算出一個新的decoder語意向量 ct_d
         ct_d, prev_s, dec_attn = self.dec_attention(dec_h, prev_s, sum_k_emb)        #intra-decoder attention
@@ -279,8 +228,6 @@ class Decoder(nn.Module):
         #  計算各個decoing step 使用pointer mechanism 做預測單詞的 prob distribution
         p_gen = T.cat([ct_e, ct_d, st_hat, x], 1)
         p_gen = self.p_gen_linear(p_gen)            # batch_size,1
-        p_gen = self.p_gen_dropout(p_gen)
-
         p_gen = T.sigmoid(p_gen)                    # batch_size,1
 
         # (eq 4 in Pointer - Generator Networks - https: // arxiv.org / pdf / 1704.04368.pdf)
@@ -290,8 +237,7 @@ class Decoder(nn.Module):
         out = self.V1(out)                          # batch_size, n_vocab
         vocab_dist = F.softmax(out, dim=1)          #  P_vocab
         vocab_dist = p_gen * vocab_dist             #  P_gen *P_vocab(w) # (generate mode) select word from vocab distribution
-        # attn_dist_ = (1 - p_gen) * attn_dist        #  (1 - p_gen) *P_vocab(w) # (copy mode) select word from source attention distribution => (word not appear in the source document) => (OOV words)
-        attn_dist_ = (1 - p_gen) * attn_dist[:,0,:]        #  (1 - p_gen) *P_vocab(w) # (copy mode) select word from source attention distribution => (word not appear in the source document) => (OOV words)
+        attn_dist_ = (1 - p_gen) * attn_dist        #  (1 - p_gen) *P_vocab(w) # (copy mode) select word from source attention distribution => (word not appear in the source document) => (OOV words)
 
         # pointer mechanism (as suggested in eq 9 Pointer-Generator Networks - https://arxiv.org/pdf/1704.04368.pdf)
         # extra_zeros : 裝載不在詞彙字典的詞分布
@@ -363,16 +309,16 @@ class Model(nn.Module):
         step_losses = []
         s_t = (enc_hidden[0], enc_hidden[1])  # Decoder hidden states
         # x_t = get_cuda(T.LongTensor(len(enc_out)).fill_(START))  # Input to the decoder
-        x_t = T.LongTensor(len(enc_out)).fill_(START).cuda(enc_hidden[1].device.index)    # Input to the decoder
+        x_t = T.LongTensor(len(enc_out)).fill_(START).to('cuda:%s'%(enc_hidden[1].device.index))    # Input to the decoder
         # x_t = T.LongTensor(len(enc_out)).fill_(START)    # Input to the decoder
         prev_s = None  # Used for intra-decoder attention (section 2.2 in https://arxiv.org/pdf/1705.04304.pdf)
         sum_temporal_srcs = None  # Used for intra-temporal attention (section 2.1 in https://arxiv.org/pdf/1705.04304.pdf)
         pred_probs = []
-        # pred_labels = []
+        labels = []
         for t in range(min(max_dec_len, config.max_dec_steps)):
             # use_gound_truth = get_cuda((T.rand(len(enc_out)) > config.gound_truth_prob)).long()  # Probabilities indicating whether to use ground truth labels instead of previous decoded tokens
             
-            use_gound_truth = (T.rand(len(enc_out)) > config.gound_truth_prob).long().cuda(dec_batch.device.index)   # Probabilities indicating whether to use ground truth labels instead of previous decoded tokens
+            use_gound_truth = (T.rand(len(enc_out)) > config.gound_truth_prob).long().to('cuda:%s'%(dec_batch.device.index))   # Probabilities indicating whether to use ground truth labels instead of previous decoded tokens
             # use_gound_truth = (T.rand(len(enc_out)) > config.gound_truth_prob).long()
             x_t = use_gound_truth * dec_batch[:, t] + (1 - use_gound_truth) * x_t  # Select decoder input based on use_ground_truth probabilities
             x_t = self.embeds(x_t)  
@@ -385,7 +331,8 @@ class Model(nn.Module):
             # step_loss = F.nll_loss(log_probs, target, reduction="none", ignore_index=PAD)
             # step_loss.to('cuda:0')   
             # step_losses.append(step_loss)
-            pred_probs.append(log_probs)            
+            pred_probs.append(log_probs)
+            labels.append(target)
             x_t = T.multinomial(final_dist,1).squeeze()  # Sample words from final distribution which can be used as input in next time step
 
             is_oov = (x_t >= config.vocab_size).long()  # Mask indicating whether sampled word is OOV
@@ -408,14 +355,14 @@ class Model(nn.Module):
 
         s_t = enc_hidden                                                                            #Decoder hidden states
         # x_t = get_cuda(T.LongTensor(len(enc_out)).fill_(START))  # Input to the decoder
-        x_t = T.LongTensor(len(enc_out)).fill_(START).cuda(enc_batch.device.index)     
+        x_t = T.LongTensor(len(enc_out)).fill_(START).to('cuda:%s'%(enc_batch.device.index))     
         prev_s = None                                                                               #Used for intra-decoder attention (section 2.2 in https://arxiv.org/pdf/1705.04304.pdf)
         sum_temporal_srcs = None                                                                    #Used for intra-temporal attention (section 2.1 in https://arxiv.org/pdf/1705.04304.pdf)
         inds = []                       # Stores sampled indices for each time step
         decoder_padding_mask = []       # Stores padding masks of generated samples
         log_probs = []                                                                              #Stores log probabilites of generated samples
         # mask = get_cuda(T.LongTensor(len(enc_out)).fill_(1))   
-        mask = T.LongTensor(len(enc_out)).fill_(1).cuda(enc_batch.device.index)                                          #Values that indicate whether [STOP] token has already been encountered; 1 => Not encountered, 0 otherwise
+        mask = T.LongTensor(len(enc_out)).fill_(1).to('cuda:%s'%(enc_batch.device.index))                                          #Values that indicate whether [STOP] token has already been encountered; 1 => Not encountered, 0 otherwise
         # Generate RL tokens and compute rl-log-loss
         # ----------------------------------------------------------------------
         for t in range(config.max_dec_steps):
@@ -439,7 +386,7 @@ class Model(nn.Module):
             x_t = x_t.detach() # detach返回的 Variable 永远不会需要梯度
             inds.append(x_t)
             # mask_t = get_cuda(T.zeros(len(enc_out)))    #Padding mask of batch for current time step
-            mask_t = T.zeros(len(enc_out)).cuda(enc_batch.device.index)                                          #Values that indicate whether [STOP] token has already been encountered; 1 => Not encountered, 0 otherwise
+            mask_t = T.zeros(len(enc_out)).to('cuda:%s'%(enc_batch.device.index))                                          #Values that indicate whether [STOP] token has already been encountered; 1 => Not encountered, 0 otherwise
 
             mask_t[mask == 1] = 1                       #If [STOP] is not encountered till previous time step, mask_t = 1 else mask_t = 0
             mask[(mask == 1) + (x_t == END) == 2] = 0    #If [STOP] is not encountered till previous time step and current word is [STOP], make mask = 0
@@ -457,36 +404,33 @@ class Model(nn.Module):
             log_probs = T.sum(log_probs, dim=1) / lens  # 計算平均的每個句子的log loss # (bs,1)        #compute normalizied log probability of a sentence
         return (inds, log_probs, enc_out)
 
+        # decoded_strs = []
+        # for i in range(len(enc_out)):
+        #     id_list = inds[i].cpu().numpy() # 取出每個sample sentence 的word id list
+        #     S = output2words(id_list, vocab, batch.art_oovs[i]) #Generate sentence corresponding to sampled words
+        #     try:
+        #         end_idx = S.index(data.STOP_DECODING)
+        #         S = S[:end_idx]
+        #     except ValueError:
+        #         S = S
+        #     if len(S) < 2:          #If length of sentence is less than 2 words, replace it with "xxx"; Avoids setences like "." which throws error while calculating ROUGE
+        #         S = ["xxx"]
+        #     S = " ".join(S)
+        #     decoded_strs.append(S)
+        # return decoded_strs, log_probs
+
     def forward(self, config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, \
-            extra_zeros, enc_batch_extend_vocab , ct_e, \
-            max_dec_len, dec_batch, target_batch, train_rl = False, art_oovs = None, original_abstract=None, vocab=None):
+                extra_zeros, enc_batch_extend_vocab , ct_e, \
+                max_dec_len, dec_batch, target_batch, train_rl = False, greedy = False):
         
         if not train_rl:
             return self.MLE(config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, \
                 extra_zeros, enc_batch_extend_vocab , ct_e, \
                 max_dec_len, dec_batch, target_batch)
         else:
-            '''multinomial sampling'''
-            sample_inds, RL_log_probs, sample_enc_out = self.RL(config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, \
+            return self.RL(config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, \
                 extra_zeros, enc_batch_extend_vocab , ct_e, \
-                max_dec_len, dec_batch, target_batch, greedy=False)
+                max_dec_len, dec_batch, target_batch, greedy)
+        # return pred_probs
 
-            '''# greedy sampling'''
-            with T.autograd.no_grad(): 
-                greedy_inds, _, gred_enc_out = self.RL(config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, \
-                extra_zeros, enc_batch_extend_vocab , ct_e, \
-                max_dec_len, dec_batch, target_batch, greedy=True)
-
-            # art_oovs = inputs.art_oovs
-            sample_sents = to_sents(sample_enc_out, sample_inds, vocab, art_oovs)
-            greedy_sents = to_sents(gred_enc_out, greedy_inds, vocab, art_oovs)
-            
-            sample_reward = reward_function(sample_sents, original_abstract) # r(w^s):通过根据概率来随机sample词生成句子的reward值
-            baseline_reward = reward_function(greedy_sents, original_abstract) # r(w^):测试阶段使用greedy decoding取概率最大的词来生成句子的reward值
-
-            batch_reward = T.mean(sample_reward).item()
-            #Self-critic policy gradient training (eq 15 in https://arxiv.org/pdf/1705.04304.pdf)
-            rl_loss = -(sample_reward - baseline_reward) * RL_log_probs  # SCST梯度計算公式     
-            rl_loss = T.mean(rl_loss)  
-            return rl_loss, batch_reward
-            
+    

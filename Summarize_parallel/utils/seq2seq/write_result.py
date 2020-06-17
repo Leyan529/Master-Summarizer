@@ -232,31 +232,39 @@ def total_evaulate(article_sents, keywords_list, decoded_sents, ref_sents):
     gen_type = ["Ext" if p > 50 else "Abs" for p in overlap_percent]
     rouge = Rouge() 
     scores = rouge.get_scores(decoded_sents, ref_sents, avg = False)
-    rouge_1 = [score['rouge-1']['f'] for score in scores]
-    rouge_2 = [score['rouge-2']['f'] for score in scores]
-    rouge_l = [score['rouge-l']['f'] for score in scores]
+    rouge_1_p = [score['rouge-1']['p'] for score in scores]
+    rouge_2_p = [score['rouge-2']['p'] for score in scores]
+    rouge_l_p = [score['rouge-l']['p'] for score in scores]
+
+    rouge_1_r = [score['rouge-1']['r'] for score in scores]
+    rouge_2_r = [score['rouge-2']['r'] for score in scores]
+    rouge_l_r = [score['rouge-l']['r'] for score in scores]
+
+    rouge_1_f = [score['rouge-1']['f'] for score in scores]
+    rouge_2_f = [score['rouge-2']['f'] for score in scores]
+    rouge_l_f = [score['rouge-l']['f'] for score in scores]
     '''
         累加的和单独的1元组BLEU使用相同的权重，也就是（1,0,0,0）。计算累加的2元组BLEU分数为1元组和2元组分别赋50％的权重，
         计算累加的3元组BLEU为1元组，2元组和3元组分别为赋33％的权重            
         在描述文本生成系统的性能时，通常会报告从BLEU-1到BLEU-4的累加分数
     '''
     # self-BLEU
-    self_Bleu_1 = [
-        sentence_bleu([ref_sents[i].split(" ")], decode.split(" "), weights=(1, 0, 0, 0)) \
-        for i, decode in enumerate(decoded_sents)
-    ]
-    self_Bleu_2 = [
-        sentence_bleu([ref_sents[i].split(" ")], decode.split(" "), weights=(0, 1, 0, 0)) \
-        for i, decode in enumerate(decoded_sents)
-    ]
-    self_Bleu_3 = [
-        sentence_bleu([ref_sents[i].split(" ")], decode.split(" "), weights=(0, 0, 1, 0)) \
-        for i, decode in enumerate(decoded_sents)
-    ]
-    self_Bleu_4 = [
-        sentence_bleu([ref_sents[i].split(" ")], decode.split(" "), weights=(0, 0, 0, 1)) \
-        for i, decode in enumerate(decoded_sents)
-    ]   
+    # self_Bleu_1 = [
+    #     sentence_bleu([ref_sents[i].split(" ")], decode.split(" "), weights=(1, 0, 0, 0)) \
+    #     for i, decode in enumerate(decoded_sents)
+    # ]
+    # self_Bleu_2 = [
+    #     sentence_bleu([ref_sents[i].split(" ")], decode.split(" "), weights=(0, 1, 0, 0)) \
+    #     for i, decode in enumerate(decoded_sents)
+    # ]
+    # self_Bleu_3 = [
+    #     sentence_bleu([ref_sents[i].split(" ")], decode.split(" "), weights=(0, 0, 1, 0)) \
+    #     for i, decode in enumerate(decoded_sents)
+    # ]
+    # self_Bleu_4 = [
+    #     sentence_bleu([ref_sents[i].split(" ")], decode.split(" "), weights=(0, 0, 0, 1)) \
+    #     for i, decode in enumerate(decoded_sents)
+    # ]   
     # commulate-BLEU(BLEU)
     Bleu_1 = [
         sentence_bleu([ref_sents[i].split(" ")], decode.split(" "), weights=(1, 0, 0, 0)) \
@@ -284,13 +292,13 @@ def total_evaulate(article_sents, keywords_list, decoded_sents, ref_sents):
         'keywords':keywords_list,
         'reference':ref_sents,
         'decoded':decoded_sents,            
-        'rouge_1':rouge_1,
-        'rouge_2':rouge_2,
-        'rouge_l':rouge_l,            
-        'self_Bleu_1':self_Bleu_1,
-        'self_Bleu_2':self_Bleu_2,
-        'self_Bleu_3':self_Bleu_3,
-        'self_Bleu_4':self_Bleu_4,
+        'rouge_1':rouge_1_f,
+        'rouge_2':rouge_2_f,
+        'rouge_l':rouge_l_f,            
+        # 'self_Bleu_1':self_Bleu_1,
+        # 'self_Bleu_2':self_Bleu_2,
+        # 'self_Bleu_3':self_Bleu_3,
+        # 'self_Bleu_4':self_Bleu_4,
         'Bleu_1':Bleu_1,
         'Bleu_2':Bleu_2,
         'Bleu_3':Bleu_3,
@@ -303,54 +311,91 @@ def total_evaulate(article_sents, keywords_list, decoded_sents, ref_sents):
         'gen_type': gen_type
     }
     batch_frame = pd.DataFrame(batch_frame)
-    return rouge_1, rouge_2, rouge_l, self_Bleu_1, self_Bleu_2, self_Bleu_3, self_Bleu_4, \
-            Bleu_1, Bleu_2, Bleu_3, Bleu_4, Meteor, batch_frame 
+    multi_scores = {
+        'rouge_1_p': rouge_1_p,
+        'rouge_1_r': rouge_1_r,
+        'rouge_1_f': rouge_1_f,
+        'rouge_2_p': rouge_2_p,
+        'rouge_2_r': rouge_2_r,
+        'rouge_2_f': rouge_2_f,
+        'rouge_l_p': rouge_l_p,
+        'rouge_l_r': rouge_l_r,
+        'rouge_l_f': rouge_l_f,
+        'bleu_1':Bleu_1,
+        'bleu_2':Bleu_2,
+        'bleu_3':Bleu_3,
+        'bleu_4':Bleu_4,
+        'meteor':Meteor
+    }
+    # return rouge_1, rouge_2, rouge_l, self_Bleu_1, self_Bleu_2, self_Bleu_3, self_Bleu_4, \
+    #         Bleu_1, Bleu_2, Bleu_3, Bleu_4, Meteor, batch_frame 
+    # return rouge_1, rouge_2, rouge_l, \
+    #         Bleu_1, Bleu_2, Bleu_3, Bleu_4, Meteor, batch_frame 
+    return multi_scores, batch_frame 
 
-def total_output(epoch, mode, writerPath, outFrame, avg_time, avg_rouge_1, avg_rouge_2, avg_rouge_l, \
-    avg_self_bleu1, avg_self_bleu2, avg_self_bleu3, avg_self_bleu4, \
-    avg_bleu1, avg_bleu2, avg_bleu3, avg_bleu4, avg_meteor
+def total_output(epoch, mode, writerPath, outFrame, avg_time, # avg_rouge_1, avg_rouge_2, avg_rouge_l, \
+    # avg_self_bleu1, avg_self_bleu2, avg_self_bleu3, avg_self_bleu4, \
+    # avg_bleu1, avg_bleu2, avg_bleu3, avg_bleu4, avg_meteor
+    num, scalar_acc
     ):
     #     print(avg_rouge_1)
-    num = len(avg_rouge_1)
-    avg_rouge_1 = sum(avg_rouge_1) / len(avg_rouge_1)
-    avg_rouge_2 = sum(avg_rouge_2) / len(avg_rouge_2)
-    avg_rouge_l = sum(avg_rouge_l) / len(avg_rouge_l)
+    # num = len(avg_rouge_1)
+    # avg_rouge_1 = sum(avg_rouge_1) / len(avg_rouge_1)
+    # avg_rouge_2 = sum(avg_rouge_2) / len(avg_rouge_2)
+    # avg_rouge_l = sum(avg_rouge_l) / len(avg_rouge_l)
     # --------------------------------------        
     # print(avg_bleu1)
-    avg_self_bleu1 = sum(avg_self_bleu1)/len(avg_self_bleu1)
-    avg_self_bleu2 = sum(avg_self_bleu2)/len(avg_self_bleu2)
-    avg_self_bleu3 = sum(avg_self_bleu3)/len(avg_self_bleu3)
-    avg_self_bleu4 = sum(avg_self_bleu4)/len(avg_self_bleu4)
+    # avg_self_bleu1 = sum(avg_self_bleu1)/len(avg_self_bleu1)
+    # avg_self_bleu2 = sum(avg_self_bleu2)/len(avg_self_bleu2)
+    # avg_self_bleu3 = sum(avg_self_bleu3)/len(avg_self_bleu3)
+    # avg_self_bleu4 = sum(avg_self_bleu4)/len(avg_self_bleu4)
     
-    avg_bleu1 = sum(avg_bleu1)/len(avg_bleu1)
-    avg_bleu2 = sum(avg_bleu2)/len(avg_bleu2)
-    avg_bleu3 = sum(avg_bleu3)/len(avg_bleu3)
-    avg_bleu4 = sum(avg_bleu4)/len(avg_bleu4)
+    # avg_bleu1 = sum(avg_bleu1)/len(avg_bleu1)
+    # avg_bleu2 = sum(avg_bleu2)/len(avg_bleu2)
+    # avg_bleu3 = sum(avg_bleu3)/len(avg_bleu3)
+    # avg_bleu4 = sum(avg_bleu4)/len(avg_bleu4)
     # --------------------------------------    
-    avg_meteor = sum(avg_meteor)/len(avg_meteor)  
+    # avg_meteor = sum(avg_meteor)/len(avg_meteor)  
     
     # avg_time = avg_time / (num * config.batch_size) 
     with open(writerPath + '/%s_%s_res.txt'% (mode, epoch), 'w', encoding='utf-8') as f:
         f.write('Accuracy result:\n')
-        f.write('##-- Rouge --##\n')
-        f.write('%sing_avg_rouge_1: %s \n'%(mode, avg_rouge_1))
-        f.write('%sing_avg_rouge_2: %s \n'%(mode, avg_rouge_2))
-        f.write('%sing_avg_rouge_l: %s \n'%(mode, avg_rouge_l))
+        f.write('##-- Rouge-1 --##\n')
+        for name, accuracy in scalar_acc.items():
+            if 'rouge_1' in name: 
+                f.write('%sing_%s: %s \n'%(mode, name, accuracy))
+             
+        f.write('##-- Rouge-2 --##\n')
+        for name, accuracy in scalar_acc.items():
+            if 'rouge_2' in name: 
+                f.write('%sing_%s: %s \n'%(mode, name, accuracy))               
 
-        f.write('##-- SELF-BLEU --##\n')
-        f.write('%sing_avg_self_bleu1: %s \n'%(mode, avg_self_bleu1))
-        f.write('%sing_avg_self_bleu2: %s \n'%(mode, avg_self_bleu2))
-        f.write('%sing_avg_self_bleu3: %s \n'%(mode, avg_self_bleu3))
-        f.write('%sing_avg_self_bleu4: %s \n'%(mode, avg_self_bleu4))
+        f.write('##-- Rouge-l --##\n')
+        for name, accuracy in scalar_acc.items():
+            if 'rouge_l' in name: 
+                f.write('%sing_%s: %s \n'%(mode, name, accuracy))               
+
+        # f.write('##-- SELF-BLEU --##\n')
+        # f.write('%sing_avg_self_bleu1: %s \n'%(mode, avg_self_bleu1))
+        # f.write('%sing_avg_self_bleu2: %s \n'%(mode, avg_self_bleu2))
+        # f.write('%sing_avg_self_bleu3: %s \n'%(mode, avg_self_bleu3))
+        # f.write('%sing_avg_self_bleu4: %s \n'%(mode, avg_self_bleu4))
         
         f.write('##-- BLEU --##\n')
-        f.write('%sing_avg_bleu1: %s \n'%(mode, avg_bleu1))
-        f.write('%sing_avg_bleu2: %s \n'%(mode, avg_bleu2))
-        f.write('%sing_avg_bleu3: %s \n'%(mode, avg_bleu3))
-        f.write('%sing_avg_bleu4: %s \n'%(mode, avg_bleu4))
+        for name, accuracy in scalar_acc.items():
+            if 'bleu' in name: 
+                f.write('%sing_%s: %s \n'%(mode, name, accuracy))
+               
+        # f.write('%sing_avg_bleu1: %s \n'%(mode, avg_bleu1))
+        # f.write('%sing_avg_bleu2: %s \n'%(mode, avg_bleu2))
+        # f.write('%sing_avg_bleu3: %s \n'%(mode, avg_bleu3))
+        # f.write('%sing_avg_bleu4: %s \n'%(mode, avg_bleu4))
         
         f.write('##-- Meteor --##\n')
-        f.write('%sing_avg_meteor: %s \n'%(mode, avg_meteor))
+        for name, accuracy in scalar_acc.items():
+            if 'meteor' in name: 
+                f.write('%sing_%s: %s \n'%(mode, name, accuracy))               
+        # f.write('%sing_avg_meteor: %s \n'%(mode, avg_meteor))
 
         f.write('Num : %s Execute Time: %s \n' % (num,avg_time))       
     # --------------------------------------     
@@ -360,4 +405,4 @@ def total_output(epoch, mode, writerPath, outFrame, avg_time, avg_rouge_1, avg_r
     
     read_info = open(writerPath + '/%s_%s_res.txt'% (mode, epoch), 'r', encoding='utf-8').readlines()
     print(mode,'\n',read_info)
-    return avg_rouge_l, outFrame
+    return scalar_acc['rouge_l_f'], outFrame

@@ -18,6 +18,7 @@ vocab_size = 60000
 # data_type = 'Pure_Cloth'
 # data_type = 'Mix6_mainCat_20'
 data_type = 'Mix6_mainCat_best'
+# data_type = 'Mix6_mainCat_pipeline'
 Data_path = '../Train-Data/%s/'%(data_type)
 xls_path = Data_path +"/pro_review.xlsx"
 # xls_path = Data_path +"/pro_review_best.xlsx"

@@ -98,7 +98,7 @@ def get_Word2Vec_weight(vocab, config): # problem
             # vocab_word = w2vec_word
         except Exception as e :
             continue
-        if i + 4 > config.vocab_size: break
+        if i + 4 >= config.vocab_size: break
         weight[i+4, :] = T.from_numpy(w2vec.wv.vectors[i])
 
     return weight

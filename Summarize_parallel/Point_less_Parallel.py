@@ -18,6 +18,7 @@ from tqdm import tqdm
 from translate.seq2seq_beam import *
 from tensorboardX import SummaryWriter
 import argparse
+from utils.seq2seq.rl_util import *
 from torch.distributions import Categorical
 
 import os
@@ -28,20 +29,20 @@ eval_gpu = 0
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--key_attention', type=bool, default=False, help = 'True/False')
-parser.add_argument('--intra_encoder', type=bool, default=True, help = 'True/False')
-parser.add_argument('--intra_decoder', type=bool, default=True, help = 'True/False')
+parser.add_argument('--intra_encoder', type=bool, default=False, help = 'True/False')
+parser.add_argument('--intra_decoder', type=bool, default=False, help = 'True/False')
 parser.add_argument('--copy', type=bool, default=True, help = 'True/False') # for transformer
 
 
 parser.add_argument('--model_type', type=str, default='seq2seq', choices=['seq2seq', 'transformer'])
-parser.add_argument('--train_rl', type=bool, default=True, help = 'True/False')
+parser.add_argument('--train_rl', type=bool, default=False, help = 'True/False')
 parser.add_argument('--keywords', type=str, default='POS_keys', 
                     help = 'POS_keys / DEP_keys / Noun_adj_keys / TextRank_keys')
 
 parser.add_argument('--lr', type=float, default=0.0001)
 parser.add_argument('--rand_unif_init_mag', type=float, default=0.02)
 parser.add_argument('--trunc_norm_init_std', type=float, default=0.001)
-parser.add_argument('--mle_weight', type=float, default=0.5)
+parser.add_argument('--mle_weight', type=float, default=1.0)
 parser.add_argument('--gound_truth_prob', type=float, default=0.5)
 
 parser.add_argument('--max_enc_steps', type=int, default=500)
@@ -63,7 +64,10 @@ parser.add_argument('--pre_train_emb', type=bool, default=True, help = 'True/Fal
 
 opt = parser.parse_args(args=[])
 config = re_config(opt)
-loggerName, writerPath = getName(config)    
+loggerName, writerPath = getName(config)   
+loggerName = loggerName.replace('Pointer_generator','Pointer_less')
+writerPath = writerPath.replace('Pointer-Generator','Pointer_less')
+
 logger = getLogger(loggerName)
 writer = SummaryWriter(writerPath)
 
@@ -82,7 +86,7 @@ save_steps = int(train_batches/250)*250
 # In[3]:
 
 
-from create_model.pg import Model
+from create_model.pointer_less import Model
 import torch.nn as nn
 import torch as T
 import torch.nn.functional as F
@@ -122,10 +126,6 @@ class NLLLoss(nn.Module):
         KL-divergence between q_{smoothed ground truth prob.}(w)
         and p_{prob. computed by model}(w) is minimized.
         """
-        '''
-        Could you check that all targets are in the range [0, nb_classes-1].
-        The stack trace points to nll_loss which probably raises an out of bounds error.
-        '''
         def __init__(self, ignore_index):
             super(NLLLoss, self).__init__()
 #             step_loss = F.nll_loss(log_probs, target, reduction="none", ignore_index=PAD)
@@ -150,7 +150,7 @@ if not eval_model:
     parallel_loss = DataParallelCriterion(criterion)
 
 
-# In[5]:
+# In[ ]:
 
 
 def to_sents(enc_out, inds, vocab, art_oovs):
@@ -169,15 +169,16 @@ def to_sents(enc_out, inds, vocab, art_oovs):
         decoded_strs.append(S)
     return decoded_strs
 
-# def merge_res(res):
-#     ((inds1, log_probs1, enc_out1),(inds2, log_probs2, enc_out2)) = res
-#     inds = T.cat([inds1, inds2], dim = 0).cpu()
-#     enc_out = T.cat([enc_out1, enc_out2], dim = 0).cpu()
-#     if type(log_probs1) != list:
-#         log_probs = T.cat([log_probs1, log_probs2], dim = 0)
-#         return inds, log_probs, enc_out
-#     else:
-#         return inds, _, enc_out
+def merge_res(res):
+    ((inds1, log_probs1, enc_out1),(inds2, log_probs2, enc_out2)) = res
+    inds = T.cat([inds1, inds2], dim = 0).cpu()
+    log_probs = T.cat([log_probs1, log_probs2], dim = 0)
+    enc_out = T.cat([enc_out1, enc_out2], dim = 0).cpu()
+
+#     inds, log_probs, enc_out = res
+#     inds = inds.cpu()
+#     enc_out = enc_out.cpu()
+    return inds, log_probs, enc_out
 
 def train_one_rl(package, inputs):
     config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, extra_zeros, enc_batch_extend_vocab, ct_e,                                 max_dec_len, dec_batch, target_batch = package
@@ -262,7 +263,7 @@ def get_package(inputs):
 #     optimizer.zero_grad() # 清空过往梯度 
 
 
-# In[6]:
+# In[ ]:
 
 
 # @torch.no_grad()
@@ -293,10 +294,10 @@ def calc_running_avg_loss(loss, running_avg_loss, decay=0.99):
     return running_avg_loss
 
 
-# In[7]:
+# In[ ]:
 
 
-# del parallel_model, parallel_loss
+# # del parallel_model, parallel_loss
 
 # import pandas as pd
 # import time
@@ -366,7 +367,7 @@ def calc_running_avg_loss(loss, running_avg_loss, decay=0.99):
 #     return avg_rouge_l, outFrame
 
 
-# In[8]:
+# In[ ]:
 
 
 # del parallel_model, parallel_loss
@@ -498,7 +499,8 @@ def decode(writer, dataloader, epoch):
     return outFrame
 
 
-# In[9]:
+
+# In[ ]:
 
 
 import time
@@ -618,7 +620,7 @@ if not eval_model:
                 logger.info("Early stopping epoch %s"%(epoch))
                 break
 
-    except Excepation as e:
+    except Exception as e:
             print(e)
     else:
         logger.info(u'------Training SUCCESS--------')  
@@ -650,23 +652,35 @@ if not eval_model:
 #     removeLogger(logger)
 
 
-# In[10]:
+# In[ ]:
+
+
+test_outFrame.head()
+
+
+# In[ ]:
 
 
 test_outFrame.columns
 
 
-# In[11]:
+# In[ ]:
 
 
 test_outFrame[test_outFrame["rouge_1"]>=0.4][['rouge_1','article', 'reference', 'decoded', 'gen_type','overlap']]
 
 
-# In[12]:
+# In[ ]:
 
 
 # batch_16 epoch_6
 # testing_avg_rouge_1: 0.3873426628114616 \n', 
 # 'testing_avg_rouge_2: 0.25943944916828854 \n', 
 # 'testing_avg_rouge_l: 0.3614074094052472 \n
+
+
+# In[ ]:
+
+
+# scalar_acc.items()
 
