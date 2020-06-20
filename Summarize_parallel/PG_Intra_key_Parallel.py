@@ -50,7 +50,7 @@ parser.add_argument('--max_dec_steps', type=int, default=20)
 parser.add_argument('--min_dec_steps', type=int, default=5)
 parser.add_argument('--max_epochs', type=int, default=15)
 parser.add_argument('--vocab_size', type=int, default=50000)
-parser.add_argument('--beam_size', type=int, default=5)
+parser.add_argument('--beam_size', type=int, default=13)
 parser.add_argument('--batch_size', type=int, default=32)
 
 parser.add_argument('--hidden_dim', type=int, default=512)
@@ -150,32 +150,9 @@ if not eval_model:
 # In[ ]:
 
 
-def to_sents(enc_out, inds, vocab, art_oovs):
-    decoded_strs = []
-    for i in range(len(enc_out)):
-        id_list = inds[i].tolist() # 取出每個sample sentence 的word id list
-        S = output2words(id_list, vocab, art_oovs[i]) #Generate sentence corresponding to sampled words
-        try:
-            end_idx = S.index(data.STOP_DECODING)
-            S = S[:end_idx]
-        except ValueError:
-            S = S
-        if len(S) < 2:          #If length of sentence is less than 2 words, replace it with "xxx"; Avoids setences like "." which throws error while calculating ROUGE
-            S = ["xxx"]
-        S = " ".join(S)
-        decoded_strs.append(S)
-    return decoded_strs
+# ---------------------------
 
-def merge_res(res):
-    ((inds1, log_probs1, enc_out1),(inds2, log_probs2, enc_out2)) = res
-    inds = T.cat([inds1, inds2], dim = 0).cpu()
-    log_probs = T.cat([log_probs1, log_probs2], dim = 0)
-    enc_out = T.cat([enc_out1, enc_out2], dim = 0).cpu()
-
-#     inds, log_probs, enc_out = res
-#     inds = inds.cpu()
-#     enc_out = enc_out.cpu()
-    return inds, log_probs, enc_out
+# ---------------------------
 
 def train_one_rl(package, inputs):
     config, max_enc_len, enc_batch, enc_key_batch, enc_lens, enc_padding_mask, enc_key_mask, extra_zeros, enc_batch_extend_vocab, ct_e,                                 max_dec_len, dec_batch, target_batch = package
@@ -194,32 +171,7 @@ def train_one(package):
     
     return loss, pred_probs
 
-def write_res(inputs, batch_probs):
-    decoded_sents = []
-    for i, probs in enurmerate(batch_probs):
-        sents = []
-        for prob in probs:
-            _id = T.max(probs, dim=1)[1]
-            _id = _id.detach()
-            sents.append(_id)
-        decoded_sents.append(seq)
-            
-    output2words()        
-    article_sents = [article for article in inputs.original_article]
-    ref_sents = [ref for ref in inputs.original_abstract]
-#     decoded_sents = [summarize(article, words=30) for article in article_sents]
-#     decoded_sents = [sent if len(sent) > 5 else "xxx xxx xxx xxx xxx" for sent in decoded_sents]
-        
-#     article_sents, decoded_sents, keywords_list, \
-#     ref_sents, long_seq_index = prepare_result(vocab, batch, pred_ids)
-
-#     rouge_1, rouge_2, rouge_l = write_rouge(writer, None, None, article_sents, decoded_sents, \
-#                 keywords_list, ref_sents, long_seq_index, write = False)
-#     avg_rouge_l.append(rouge_l)
-#     acc_cost = time.time() - acc_st
-#     avg_acc_cost.append(acc_cost)
-    
-    return seq_sents
+# ---------------------------
 
 def get_package(inputs):
     enc_batch, enc_padding_mask, enc_lens, enc_batch_extend_vocab, extra_zeros, coverage,         ct_e, enc_key_batch, enc_key_mask, enc_key_lens=             get_input_from_batch(inputs, config, batch_first = True)
@@ -294,74 +246,7 @@ def calc_running_avg_loss(loss, running_avg_loss, decay=0.99):
 # In[ ]:
 
 
-# # del parallel_model, parallel_loss
-
-# import pandas as pd
-# import time
-# from utils.seq2seq.write_result import total_evaulate, total_output
-
-# @torch.autograd.no_grad()
-# def decode_write_all(writer, logger, epoch, config, model, dataloader, mode):
-#     # 動態取batch
-#     num = len(dataloader)
-#     avg_rouge_1, avg_rouge_2, avg_rouge_l  = [], [], []
-#     avg_self_bleu1, avg_self_bleu2, avg_self_bleu3, avg_self_bleu4 = [], [], [], []
-#     avg_bleu1, avg_bleu2, avg_bleu3, avg_bleu4 = [], [], [], []
-#     avg_meteor = []
-#     outFrame = None
-#     avg_time = 0
-        
-#     for idx, inputs in enumerate(dataloader):
-#         start = time.time() 
-# #         'Encoder data'
-#         enc_batch, enc_padding_mask, enc_lens, enc_batch_extend_vocab, extra_zeros, coverage, \
-#             ct_e, enc_key_batch, enc_key_mask, enc_key_lens = get_input_from_batch(inputs, config, batch_first = True)
-#         max_enc_len = max(T.max(enc_lens,dim=0)).tolist()[0] 
-        
-#         if (max_enc_len != max(enc_lens.tolist())[0]): continue
-
-#         enc_batch = model.embeds(enc_batch)  # Get embeddings for encoder input    
-#         enc_key_batch = model.embeds(enc_key_batch)  # Get key embeddings for encoder input
-
-#         enc_out, enc_hidden = model.encoder(enc_batch, enc_lens, max_enc_len)
-        
-# #         'Feed encoder data to predict'
-#         pred_ids = beam_search(enc_hidden, enc_out, enc_padding_mask, ct_e, extra_zeros, 
-#                                 enc_batch_extend_vocab, enc_key_batch, enc_key_mask, model, 
-#                                 START, END, UNKNOWN_TOKEN)
-
-#         article_sents, decoded_sents, keywords_list, ref_sents, long_seq_index = prepare_result(vocab, inputs, pred_ids)
-#         cost = (time.time() - start)
-#         avg_time += cost        
-
-        
-#         rouge_1, rouge_2, rouge_l,             Bleu_1, Bleu_2, Bleu_3, Bleu_4, Meteor, batch_frame = total_evaulate(article_sents, keywords_list, decoded_sents, ref_sents)
-        
-#         if idx %1000 ==0 and idx >0 : print(idx)
-#         if idx == 0: outFrame = batch_frame
-#         else: outFrame = pd.concat([outFrame, batch_frame], axis=0, ignore_index=True) 
-#         # ----------------------------------------------------
-#         avg_rouge_1.extend(rouge_1)
-#         avg_rouge_2.extend(rouge_2)
-#         avg_rouge_l.extend(rouge_l)   
-        
-#         avg_self_bleu1.extend(self_Bleu_1)
-#         avg_self_bleu2.extend(self_Bleu_2)
-#         avg_self_bleu3.extend(self_Bleu_3)
-#         avg_self_bleu4.extend(self_Bleu_4)
-        
-#         avg_bleu1.extend(Bleu_1)
-#         avg_bleu2.extend(Bleu_2)
-#         avg_bleu3.extend(Bleu_3)
-#         avg_bleu4.extend(Bleu_4)
-#         avg_meteor.extend(Meteor)
-#         # ----------------------------------------------------    
-#     avg_time = avg_time / (num * config.batch_size) 
-    
-#     avg_rouge_l, outFrame = total_output(mode, writerPath, outFrame, avg_time, avg_rouge_1, avg_rouge_2, avg_rouge_l,         avg_self_bleu1, avg_self_bleu2, avg_self_bleu3, avg_self_bleu4,         avg_bleu1, avg_bleu2, avg_bleu3, avg_bleu4, avg_meteor
-#     )
-    
-#     return avg_rouge_l, outFrame
+# ---------------------------
 
 
 # In[ ]:
@@ -637,7 +522,7 @@ if not eval_model:
         '''先將test_avg_acc調起來再decode train_'''
     #     train_avg_acc, train_outFrame = decode_write_all(writer, logger, epoch, config, model, train_loader, mode = 'train')
 #         test_avg_acc, test_outFrame = decode_write_all(writer, logger, epoch, config, parallel_model.module, validate_loader, mode = 'test')
-    #     logger.info('epoch %d: train_avg_acc = %f, test_avg_acc = %f' % (epoch, train_avg_acc, test_avg_acc)) 
+    #     logger.info('epoch %d:  test_avg_acc = %f' % (epoch,  test_avg_acc)) 
 #         logger.info('epoch %d: test_avg_acc = %f' % (load_ep, test_avg_acc)) 
         removeLogger(logger)
 

@@ -57,7 +57,7 @@ class EarlyStopping:
         save_path = self.config.save_model_path + '/%s/best' % (self.title)
         if not os.path.exists(save_path): os.makedirs(save_path)
         # 保存和加载整个模型
-        T.save(model.module, save_path + '/model.pkl')
+        T.save(model.module, save_path + '/model.pt')
         
         save_path = save_path + file_path
         state = {

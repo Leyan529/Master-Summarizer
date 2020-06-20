@@ -24,6 +24,7 @@ def reward_function(decoded_sents, original_sents):
     rouge_l_f1 = get_cuda(T.FloatTensor(rouge_l_f1))
     return rouge_l_f1
 
+
 def to_sents(enc_out, inds, vocab, art_oovs):
     decoded_strs = []
     for i in range(len(enc_out)):
@@ -38,4 +39,4 @@ def to_sents(enc_out, inds, vocab, art_oovs):
             S = ["xxx"]
         S = " ".join(S)
         decoded_strs.append(S)
-    return decoded_strs    
+    return decoded_strs

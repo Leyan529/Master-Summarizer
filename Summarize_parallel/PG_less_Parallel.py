@@ -64,7 +64,10 @@ parser.add_argument('--pre_train_emb', type=bool, default=True, help = 'True/Fal
 
 opt = parser.parse_args(args=[])
 config = re_config(opt)
-loggerName, writerPath = getName(config)    
+loggerName, writerPath = getName(config)   
+loggerName = loggerName.replace('Pointer_generator','Pointer_less')
+writerPath = writerPath.replace('Pointer-Generator','Pointer_less')
+
 logger = getLogger(loggerName)
 writer = SummaryWriter(writerPath)
 
@@ -83,7 +86,7 @@ save_steps = int(train_batches/250)*250
 # In[3]:
 
 
-from create_model.pg import Model
+from create_model.pointer_less import Model
 import torch.nn as nn
 import torch as T
 import torch.nn.functional as F
@@ -147,7 +150,7 @@ if not eval_model:
     parallel_loss = DataParallelCriterion(criterion)
 
 
-# In[5]:
+# In[ ]:
 
 
 # ---------------------------
@@ -212,7 +215,7 @@ def get_package(inputs):
 #     optimizer.zero_grad() # 清空过往梯度 
 
 
-# In[6]:
+# In[ ]:
 
 
 # @torch.no_grad()
@@ -243,7 +246,7 @@ def calc_running_avg_loss(loss, running_avg_loss, decay=0.99):
     return running_avg_loss
 
 
-# In[7]:
+# In[ ]:
 
 
 # ---------------------------
@@ -382,7 +385,7 @@ def decode(writer, dataloader, epoch):
 
 
 
-# In[8]:
+# In[ ]:
 
 
 import time
@@ -534,23 +537,35 @@ if not eval_model:
 #     removeLogger(logger)
 
 
-# In[9]:
+# In[ ]:
+
+
+test_outFrame.head()
+
+
+# In[ ]:
 
 
 test_outFrame.columns
 
 
-# In[10]:
+# In[ ]:
 
 
 test_outFrame[test_outFrame["rouge_1"]>=0.4][['rouge_1','article', 'reference', 'decoded', 'gen_type','overlap']]
 
 
-# In[11]:
+# In[ ]:
 
 
 # batch_16 epoch_6
 # testing_avg_rouge_1: 0.3873426628114616 \n', 
 # 'testing_avg_rouge_2: 0.25943944916828854 \n', 
 # 'testing_avg_rouge_l: 0.3614074094052472 \n
+
+
+# In[ ]:
+
+
+# scalar_acc.items()
 

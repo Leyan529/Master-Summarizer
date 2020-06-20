@@ -48,7 +48,7 @@ parser.add_argument('--max_dec_steps', type=int, default=50)
 parser.add_argument('--min_dec_steps', type=int, default=8)
 parser.add_argument('--max_epochs', type=int, default=10)
 parser.add_argument('--vocab_size', type=int, default=50000)
-parser.add_argument('--beam_size', type=int, default=5)
+parser.add_argument('--beam_size', type=int, default=13)
 parser.add_argument('--batch_size', type=int, default=8)
 
 parser.add_argument('--hidden_dim', type=int, default=512)
@@ -151,7 +151,7 @@ model = None
 # train_avg_acc, train_outFrame = decode_write_all(writer, logger, epoch, config, model, train_loader, mode = 'train')
 logger.info('-----------------------------------------------------------')
 test_avg_acc, test_outFrame = decode_write_all(writer, logger, epoch, config, model, validate_loader, mode = 'test')
-logger.info('epoch %d: train_avg_acc = %f, test_avg_acc = %f' % (epoch, train_avg_acc, test_avg_acc))
+logger.info('epoch %d:  test_avg_acc = %f' % (epoch,  test_avg_acc))
 
 # !ipython nbconvert --to script Pointer_generator.ipynb
 # train_outFrame.head()

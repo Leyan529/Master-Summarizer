@@ -35,7 +35,7 @@ parser.add_argument('--copy', type=bool, default=True, help = 'True/False') # fo
 
 parser.add_argument('--model_type', type=str, default='seq2seq', choices=['seq2seq', 'transformer'])
 parser.add_argument('--train_rl', type=bool, default=True, help = 'True/False')
-parser.add_argument('--keywords', type=str, default='POS_keys', 
+parser.add_argument('--keywords', type=str, default='Noun_adj_keys', 
                     help = 'POS_keys / DEP_keys / Noun_adj_keys / TextRank_keys')
 
 parser.add_argument('--lr', type=float, default=0.0001)
@@ -49,7 +49,7 @@ parser.add_argument('--max_dec_steps', type=int, default=20)
 parser.add_argument('--min_dec_steps', type=int, default=5)
 parser.add_argument('--max_epochs', type=int, default=15)
 parser.add_argument('--vocab_size', type=int, default=50000)
-parser.add_argument('--beam_size', type=int, default=5)
+parser.add_argument('--beam_size', type=int, default=13)
 parser.add_argument('--batch_size', type=int, default=32)
 
 parser.add_argument('--hidden_dim', type=int, default=512)
@@ -153,21 +153,7 @@ if not eval_model:
 # In[5]:
 
 
-def to_sents(enc_out, inds, vocab, art_oovs):
-    decoded_strs = []
-    for i in range(len(enc_out)):
-        id_list = inds[i].tolist() # 取出每個sample sentence 的word id list
-        S = output2words(id_list, vocab, art_oovs[i]) #Generate sentence corresponding to sampled words
-        try:
-            end_idx = S.index(data.STOP_DECODING)
-            S = S[:end_idx]
-        except ValueError:
-            S = S
-        if len(S) < 2:          #If length of sentence is less than 2 words, replace it with "xxx"; Avoids setences like "." which throws error while calculating ROUGE
-            S = ["xxx"]
-        S = " ".join(S)
-        decoded_strs.append(S)
-    return decoded_strs
+# ---------------------------
 
 # def merge_res(res):
 #     ((inds1, log_probs1, enc_out1),(inds2, log_probs2, enc_out2)) = res
@@ -196,32 +182,7 @@ def train_one(package):
     
     return loss, pred_probs
 
-def write_res(inputs, batch_probs):
-    decoded_sents = []
-    for i, probs in enurmerate(batch_probs):
-        sents = []
-        for prob in probs:
-            _id = T.max(probs, dim=1)[1]
-            _id = _id.detach()
-            sents.append(_id)
-        decoded_sents.append(seq)
-            
-    output2words()        
-    article_sents = [article for article in inputs.original_article]
-    ref_sents = [ref for ref in inputs.original_abstract]
-#     decoded_sents = [summarize(article, words=30) for article in article_sents]
-#     decoded_sents = [sent if len(sent) > 5 else "xxx xxx xxx xxx xxx" for sent in decoded_sents]
-        
-#     article_sents, decoded_sents, keywords_list, \
-#     ref_sents, long_seq_index = prepare_result(vocab, batch, pred_ids)
-
-#     rouge_1, rouge_2, rouge_l = write_rouge(writer, None, None, article_sents, decoded_sents, \
-#                 keywords_list, ref_sents, long_seq_index, write = False)
-#     avg_rouge_l.append(rouge_l)
-#     acc_cost = time.time() - acc_st
-#     avg_acc_cost.append(acc_cost)
-    
-    return seq_sents
+# ---------------------------
 
 def get_package(inputs):
     enc_batch, enc_padding_mask, enc_lens, enc_batch_extend_vocab, extra_zeros, coverage,         ct_e, enc_key_batch, enc_key_mask, enc_key_lens=             get_input_from_batch(inputs, config, batch_first = True)
@@ -629,7 +590,7 @@ if not eval_model:
         '''先將test_avg_acc調起來再decode train_'''
     #     train_avg_acc, train_outFrame = decode_write_all(writer, logger, epoch, config, model, train_loader, mode = 'train')
 #         test_avg_acc, test_outFrame = decode_write_all(writer, logger, epoch, config, parallel_model.module, validate_loader, mode = 'test')
-    #     logger.info('epoch %d: train_avg_acc = %f, test_avg_acc = %f' % (epoch, train_avg_acc, test_avg_acc)) 
+    #     logger.info('epoch %d:  test_avg_acc = %f' % (epoch,  test_avg_acc)) 
 #         logger.info('epoch %d: test_avg_acc = %f' % (load_ep, test_avg_acc)) 
         removeLogger(logger)
 

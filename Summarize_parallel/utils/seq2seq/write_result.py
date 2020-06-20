@@ -400,6 +400,7 @@ def total_output(epoch, mode, writerPath, outFrame, avg_time, # avg_rouge_1, avg
         f.write('Num : %s Execute Time: %s \n' % (num,avg_time))       
     # --------------------------------------     
     outFrame = outFrame.sort_values(by=['article_lens'], ascending = False)
+    # outFrame = outFrame[outFrame['article_lens']>=50]
     writeFrame = outFrame[:1000]
     writeFrame.to_excel(writerPath + '/%s_%s_output.xls'% (mode, epoch))
     

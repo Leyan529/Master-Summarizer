@@ -85,8 +85,10 @@ def init_linear_wt(linear):
         linear.bias.data.normal_(std=trunc_norm_init_std)
 
 def get_Word2Vec_weight(vocab, config): # problem
+    path = os.path.abspath(config.word_emb_path).replace('Summarize_parallel/','/')
+    print(path)
     w2vec = gensim.models.KeyedVectors.load_word2vec_format(
-    config.word_emb_path, binary=False, encoding='utf-8')
+    path, binary=False, encoding='utf-8')
     weight = T.zeros(config.vocab_size, config.emb_dim)
     for i in range(4):
         weight[i, :] = T.from_numpy(np.random.normal(0, 1e-4, config.emb_dim))

@@ -37,8 +37,8 @@ def clean_wordlist(wordlist):
 
 class Example:
     def __init__(self, config, vocab, data):        
-        # review_ID = data['review_ID'].strip()
-        article = data['review'].strip()
+        review_ID = data['review_ID'].strip()
+        article = data['review'].strip().replace(" thi "," this ")
         abstract = data['summary'].strip().replace("<s>","").replace("</s>","")
         # keywords = data['POS_FOP_keywords']       
         keywords = data[config.keywords]
@@ -46,12 +46,12 @@ class Example:
         # src_words = article.split()[:config.max_enc_steps]
         
         src_words = [w for w in article.split() if w != "" and w not in alphbet_stopword][:config.max_enc_steps]
-        src_words = clean_wordlist(src_words)
+        # src_words = clean_wordlist(src_words)
 
         self.enc_inp = [vocab.word2id(w) for w in src_words]
 
         abstract_words = [w for w in abstract.split() if w != "" and w not in alphbet_stopword]
-        abstract_words = clean_wordlist(abstract_words)
+        # abstract_words = clean_wordlist(abstract_words)
 
         abs_ids = [vocab.word2id(w) for w in abstract_words]
         self.dec_inp, self.dec_tgt = self.get_dec_inp_tgt(config, abs_ids, config.max_dec_steps)
@@ -72,14 +72,14 @@ class Example:
         # else: # old_ver
         #     key_words = keywords.split()
         key_words = eval(keywords)
-        key_words = clean_wordlist(key_words)
+        # key_words = clean_wordlist(key_words)
         key_words = [word for word in key_words if word in vocab._word2id.keys()] # 過濾不在vocabulary 的 keyword
         if len(key_words) > config.max_key_num:
             key_words = key_words[:config.max_key_num]  # 限定key_words數量    
         self.enc_key_len = len(key_words)  # store the length after truncation but before padding
         self.key_inp = [vocab.word2id(w) for w in key_words]  # list of keyword ids; NO UNK token
         self.key_words = key_words
-        # self.review_ID = review_ID
+        self.review_ID = review_ID
         # -----------------------------------------------------------------------------------------------------        
 
     def get_dec_inp_tgt(self, config, sequence, max_len, start_id = START, stop_id = END):
@@ -140,7 +140,7 @@ class Batch:
         self.original_abstract = [poi.original_abstract for poi in batch]
         self.original_article = [poi.original_article for poi in batch]   
         self.key_words = [poi.key_words for poi in batch]   
-        # self.review_IDS = [poi.review_ID for poi in batch]
+        self.review_IDS = [poi.review_ID for poi in batch]
 
 
 class Collate():
@@ -172,15 +172,21 @@ def getDataLoader(logger, config):
     vocab = Vocab(config.vocab_path, config.vocab_size)
     # 由於 train_test_split 的random state故每次切割的內容皆相同
     total_df = pd.read_excel(config.xls_path)
-    # total_df['review_ID'] = total_df.review_ID.astype(str)
+    total_df['review_ID'] = total_df.review_ID.astype(str)
     # ---------------------------------------------------
     # total_df = total_df[total_df['review_len']<=500]
     # total_df = total_df[total_df['summary_len']<=20]
     # # reveiw_len <= 500 and summary_len<= 20: 469335
     # ---------------------------------------------------
     # exp (orign best)
+    # total_df = total_df[total_df['review_len']<=500]
+    # total_df = total_df[total_df['summary_len']<=20]
+    # ---------------------------------------------------
+    # exp (Ekphrasis)
     total_df = total_df[total_df['review_len']<=500]
     total_df = total_df[total_df['summary_len']<=20]
+    total_df = total_df[abs(total_df['summary_polarity'])>=0.1]
+    total_df = total_df[total_df['summary_subjectivity']>=0.1]
     # ---------------------------------------------------
     # exp 1
     # total_df = total_df[total_df['review_len']<=500]

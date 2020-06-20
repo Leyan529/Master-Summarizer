@@ -16,9 +16,11 @@ vocab_size = 60000
 # xls_path = Data_path +"/pro_review_overlap.xlsx"
 
 # data_type = 'Pure_Cloth'
-# data_type = 'Mix6_mainCat_20'
-data_type = 'Mix6_mainCat_best'
+data_type = 'Mix6_mainCat_Ekphrasis'
+# data_type = 'Mix6_mainCat_best'
 # data_type = 'Mix6_mainCat_pipeline'
+
+
 Data_path = '../Train-Data/%s/'%(data_type)
 xls_path = Data_path +"/pro_review.xlsx"
 # xls_path = Data_path +"/pro_review_best.xlsx"
@@ -38,6 +40,6 @@ emb_grad = False
 max_key_num = 8
 eps = 1e-12 # 学习率衰减的最小值，当学习率变化小于 eps 时，则不调整学习率
 coverage = True
-
+emb_dim = 300
 
 
