@@ -210,6 +210,8 @@ def nltk_noun_pharse_lemm(text):
         # ) 
         sentence = TextBlob(sent)
         sentence = " ".join([str(w.singularize()) for w in sentence.words])
+
+
         # print(sentence)
         if len(sentence.split(" ")) > 3:
             sentence = sentence + " ."
@@ -234,8 +236,15 @@ def review_clean(text):
     # text = nltk_bert_token_sents(text)  
     text = ekphrasis_process(text)
     text, feats = nltk_noun_pharse_lemm(text)
+    text = ['this' if t == 'thi' else t for t in text]
+    text = [t for t in text if t not in alphbet_stopword]
     text = " ".join(text)
     text = squeeze(text)
+    text = text.replace(" thi "," this ")
+    text = text.replace(" thi "," ")
+    text = text.replace(" wa "," was ")
+    text = text.replace(" ha "," has ")
+    text = text.replace(" tha "," that ")
     return text, feats, nltk.sent_tokenize(text)
 
 def summary_clean(text):
@@ -245,7 +254,13 @@ def summary_clean(text):
     # text = nltk_bert_token_sents(text)  
     text = ekphrasis_process(text)
     text, _ = nltk_noun_pharse_lemm(text) 
+    text = ['this' if t == 'thi' else t for t in text]
+    text = [t for t in text if t not in alphbet_stopword]
     text = "<s> " + " ".join(text) + " </s>"
     text = text.replace("." , "")
     text = squeeze(text)
+    text = text.replace(" thi "," this ")
+    text = text.replace(" thi "," ")
+    text = text.replace(" ha "," has ")
+    text = text.replace(" tha "," that ")
     return text

@@ -76,11 +76,11 @@ elif mode == 'mixCat':
     # mongoObj = Mix12()
     # mongoObj = Mixbig_5()
     '''compare'''
-    mongoObj = Mix6()
+    # mongoObj = Mix6()
     # mongoObj = Mixbig_Elect_30()
     # mongoObj = Mixbig_Books_3()
     # mongoObj = Pure_kitchen()
-    # mongoObj = Pure_Cloth()
+    mongoObj = Pure_Cloth()
     
     main_cat = mongoObj.getAttr()
     print("make data dict from Mix cat : %s " % (main_cat))
@@ -147,7 +147,7 @@ if os.path.exists(csv_path):
     print("previous file %s ...."%(csv_path)) 
 else:
     df = make_orign_rev_xlsx()
-    writer = pd.ExcelWriter(csv_path, encoding='utf8', engine='xlsxwriter')
+    writer = pd.ExcelWriter(csv_path, engine='xlsxwriter')
     #THIS
     writer.book.use_zip64()
     df.to_excel(writer, index = False)
@@ -239,7 +239,7 @@ if not os.path.exists(csv_path):
     orign_key_df = make_review(df)
     # orign_key_df.to_excel(csv_path, encoding='utf8', engine='xlsxwriter')
 
-    writer = pd.ExcelWriter(csv_path, encoding='utf8', engine='xlsxwriter')
+    writer = pd.ExcelWriter(csv_path, engine='xlsxwriter')
     #THIS
     writer.book.use_zip64()
     orign_key_df.to_excel(writer, index = False)
@@ -402,16 +402,17 @@ if not os.path.exists(csv_path):
 
             review_ID , review , summary , orign_review, orign_summary = \
             data_dict['review_ID'], data_dict['review'], data_dict['summary'], data_dict['orign_review'], data_dict['orign_summary']
-
+            # ------------------------------------------------------------- 
+            rev_tokens, summ_tokens = review.split(" "), summary.split(" ")
+            if len(rev_tokens)>500: continue
+            if len(summary)>20: continue
             # -------------------------------------------------------------  
             summary_blob = TextBlob(summary.replace("<s> ",'').replace(" </s>",''))
             summary_polarity = abs(summary_blob.sentiment.polarity)
             summary_subjectivity = summary_blob.sentiment.subjectivity
             if summary_polarity == 0: continue
             if summary_subjectivity == 0: continue
-            # -------------------------------------------------------------  
-            rev_tokens, summ_tokens = review.split(" "), summary.split(" ")
-
+            # -------------------------------------------------------------          
             rev_token_set = set(rev_tokens)
             summ_token_set = set(summ_tokens)
             
@@ -491,19 +492,20 @@ if not os.path.exists(csv_path):
             }
             pro_df[j] = save_dict
             j = j + 1
-
             pbar.update(1)
             pbar.set_description("%s pro review" % (folder))
 
-        pro_df = pd.DataFrame.from_dict(pro_df, orient='index')
+        
+        
 
-        writer = pd.ExcelWriter(csv_path, encoding='utf8', engine='xlsxwriter')
+        writer = pd.ExcelWriter(csv_path,engine='xlsxwriter')
         #THIS
         writer.book.use_zip64()
-        pro_df.to_excel(writer, index = False)
-
+        pro_df2 = pd.DataFrame.from_dict(pro_df, orient='index')
+        pro_df2.to_excel(writer, index = False)
+        print(csv_path + " Write finished") 
         # pro_df.to_excel(csv_path, encoding='utf8', engine='xlsxwriter')
-        print(csv_path + " Write finished")   
+        # print(csv_path + " Write finished")   
 
 csv_path = '%s/pro_review.xlsx'%(folder)   
 df = pd.read_excel(csv_path)
