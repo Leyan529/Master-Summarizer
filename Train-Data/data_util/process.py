@@ -9,7 +9,13 @@ import en_core_web_sm
 from spacy.matcher import Matcher
 nlp = en_core_web_sm.load()
 
-from textblob import TextBlob
+# from textblob import TextBlob
+# from textblob import Word
+from textblob import Blobber
+from textblob.sentiments import NaiveBayesAnalyzer
+TextBlob = Blobber(analyzer=NaiveBayesAnalyzer())
+import string
+
 from nltk.corpus import stopwords
 from nltk.corpus import wordnet as wn
 # import networkx as nx
@@ -119,18 +125,47 @@ def lower_remove_simple_html(text):
     return text
 # step1.5 移除符號特徵 + 小數點數值
 def remove_symbol(text):
-    # 移除符號特徵
-    # ----------------------------------------------------------------------
-    pattern = re.compile(r"([\d\w\.-]+[-'//.][\d\w\.-]+)")  # |  ([\(](\w)+[\)])
-    keys = pattern.findall(text)           
-    # 移除符號特徵    
-    # keywords.extend(keys)
-    for k in keys:    
-        k = k.replace("(","").replace(")","")
-        text = text.replace(k,"(" + k + ")")
-        text = text.replace("((","(").replace("))",")")     
-        text = text.replace("(" + k + ")","") 
-        text = text.strip()
+    # # 移除符號特徵
+    # # ----------------------------------------------------------------------
+    # pattern = re.compile(r"([\d\w\.-]+[-'//.][\d\w\.-]+)")  # |  ([\(](\w)+[\)])
+    # keys = pattern.findall(text)           
+    # # 移除符號特徵    
+    # # keywords.extend(keys)
+    # for k in keys:    
+    #     k = k.replace("(","").replace(")","")
+    #     text = text.replace(k,"(" + k + ")")
+    #     text = text.replace("((","(").replace("))",")")     
+    #     text = text.replace("(" + k + ")","") 
+    #     text = text.strip()
+    def clean_text_round1(text):
+        '''Make text lowercase, remove text in square brackets, remove punctuation and remove words containing numbers.'''
+        text = text.lower()
+        text = re.sub('\[.*?\]', '', text)
+        text = re.sub('\[*?\]', '', text)
+        # text = re.sub('[%s]' % re.escape(string.punctuation), '', text)
+        text = re.sub('\w*\d\w*', '', text) # W*:A-Z  d:digit
+        return text
+    def clean_text_round2(text):
+        '''Get rid of some additional punctuation and non-sensical text that was missed the first time around.'''
+        text = re.sub('[‘’“”…]', '', text)
+        text = re.sub('\n', ' . ', text)
+        text = re.sub(' +',' ',text) # Removing extra spaces
+        return text
+    def clean_text_round3(text):
+        '''remove containing numbers/extra space'''
+        text = re.sub(' +',' ',text) # Removing extra spaces
+        text = re.sub('\x95', ' ', text)
+        text = re.sub('nbsp', '', text)
+        text = re.sub('á', 'a', text)
+        text = re.sub('é', 'e', text)
+        text = re.sub('í', 'i', text)
+        text = re.sub('ó', 'o', text)
+        text = re.sub('ú', 'u', text)
+        return text
+
+    text = clean_text_round1(text)
+    text = clean_text_round2(text)
+    text = clean_text_round3(text)
     return text
 
 # step2 nltk.sent_tokenize + Bert 絕對斷詞
@@ -161,6 +196,7 @@ def nltk_bert_token_sents(text):
     return text
 
 def ekphrasis_process(paragraphs):
+    # ekphrasis 語料修正 + 語料切詞
     # abs correct + segment
     pre_process_tokens = text_processor.pre_process_doc(paragraphs)
     # Word Segmentation
@@ -173,8 +209,8 @@ def ekphrasis_process(paragraphs):
     # correct_tokens = [sp.correct(token) if token != '.' else token for token in segment_tokens ]
 
     text = remove_tags(" ".join(segment_tokens))
-    remove_chars = '["#$%&\'\"\()*+:<=>?@★【】《》“”‘’[\\]^_`{|}~]+'
-    text = re.sub(remove_chars, "", text)  # remove number and segment
+    # remove_chars = '["#$%&\'\"\()*+:<=>?@★【】《》“”‘’[\\]^_`{|}~]+'
+    # text = re.sub(remove_chars, "", text)  # remove number and segment
     text = squeeze(text)
     return text
 
@@ -186,30 +222,30 @@ def nltk_noun_pharse_lemm(text):
     new_sents, noun_feats = [], []
     for sent in nltk.sent_tokenize(text):
         
-        # doc = nlp(sent)
-        # sentence = " ".join(
-        #     [
-        #         word.lemma_ if word.pos_.startswith('N') or word.pos_.startswith('J') or
-        #                     word.pos_.startswith('V') or word.pos_.startswith('R') else word.orth_
-        #         for word in doc
-        #         if (
-        #         (not word.is_space and
-        #         not word.is_bracket and
-        #         # not word.is_digit and
-        #         not word.is_left_punct and
-        #         not word.is_right_punct and
-        #         not word.is_bracket and
-        #         not word.is_quote and
-        #         not word.is_currency and
-        #         not word.is_punct 							
-        #         # word.tag_ not in ["SYM", "HYPH"] and
-        #         # word.lemma_ != "-PRON-"
-        #         )
-        #         )
-        #     ]
-        # ) 
-        sentence = TextBlob(sent)
-        sentence = " ".join([str(w.singularize()) for w in sentence.words])
+        doc = nlp(sent)
+        sentence = " ".join(
+            [
+                word.lemma_ if word.pos_.startswith('N') or word.pos_.startswith('J') or
+                            word.pos_.startswith('V') or word.pos_.startswith('R') else word.orth_
+                for word in doc
+                if (
+                (not word.is_space and # 過濾空白
+                # not word.is_digit and
+                not word.is_left_punct and # 過濾左標點符號
+                not word.is_right_punct and # 過濾右標點符號
+                not word.is_bracket and # 過濾括號
+                not word.is_quote and # 過濾引號
+                not word.is_currency and # 過濾錢幣符號
+                not word.is_punct # 過濾標點符號							
+                # word.tag_ not in ["SYM", "HYPH"] and
+                # word.lemma_ != "-PRON-"
+                )
+                )
+            ]
+        ) 
+        '''只有複數變單數'''
+        # sentence = TextBlob(sent)
+        # sentence = " ".join([str(w.singularize()) for w in sentence.words])
 
 
         # print(sentence)
@@ -219,7 +255,7 @@ def nltk_noun_pharse_lemm(text):
             text_keywords = extract_PF(sentence).run()
             noun_feats.extend(text_keywords)
     
-#     newString = re.sub(r'http\S+', '', text)
+    # newString = re.sub(r'http\S+', '', text)
     return new_sents, list(set(noun_feats))
 
 
@@ -231,6 +267,9 @@ def squeeze(s):
     return s
 
 def review_clean(text):
+    # print("---------------orign review-------------")
+    # print(text)
+
     text = lower_remove_simple_html(text)
     text = remove_symbol(text)
     # text = nltk_bert_token_sents(text)  
@@ -245,9 +284,17 @@ def review_clean(text):
     text = text.replace(" wa "," was ")
     text = text.replace(" ha "," has ")
     text = text.replace(" tha "," that ")
+    # print("--------------- review-------------")
+    # print(nltk.sent_tokenize(text))
+    # print('*')
+    # print('*')
+    # print('*')
+    # print('*')
     return text, feats, nltk.sent_tokenize(text)
 
 def summary_clean(text):
+    # print("---------------orign summary-------------")
+    # print(text)
     text = lower_remove_simple_html(text)    
     text = squeeze_sym(text)
     text = remove_symbol(text) 
@@ -263,4 +310,56 @@ def summary_clean(text):
     text = text.replace(" thi "," ")
     text = text.replace(" ha "," has ")
     text = text.replace(" tha "," that ")
+    # print("--------------- summary-------------")
+    # print(text)
+    # print('*')
+    # print('*')
+    # print('*')
+    # print('*')
     return text
+
+# ----------------------------------------------------------------------------------------
+def TextBlob_feat(text):
+    noun_phrases = TextBlob(text).noun_phrases
+    f = []
+    for phrase in noun_phrases:
+        blob_phrase = TextBlob(phrase)
+        for word, pos in blob_phrase.tags:
+            if pos.startswith('N'):
+                f.append(word)
+    return list(set(f))
+
+def TextBlob_noun_pharse_lemm(text):
+    sentence = []
+    # text = str(TextBlob(text).correct())
+    for blob_sent in TextBlob(text).sentences:
+        word_list = []
+        for word, pos in blob_sent.correct().tags:
+            if pos.startswith('N'):
+                word_list.append(word.lemmatize("n"))
+            elif pos.startswith('V'):
+                word_list.append(word.lemmatize("v"))
+            elif pos.startswith('R'):
+                word_list.append(word.lemmatize("r"))
+            else:
+                word_list.append(word)
+        sent = " ".join(word_list) + ' . '
+        sentence.append(sent)
+    text = "".join(sentence)
+    feats = []
+    feats = TextBlob_feat(text)
+    return text, feats, sentence
+# Too slow
+def TextBlob_review_clean(text):
+    text = lower_remove_simple_html(text)
+    text, feats, sentence = TextBlob_noun_pharse_lemm(text)
+    text = squeeze(text)
+    return text, feats, sentence
+
+def TextBlob_summary_clean(text):
+    text = lower_remove_simple_html(text)    
+    text, feats, sentence = TextBlob_noun_pharse_lemm(text)
+    text = text.replace(" . "," ")
+    text =  "<s> " + text + " </s>"
+    text = squeeze(text)
+    return text    

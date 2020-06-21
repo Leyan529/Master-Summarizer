@@ -76,11 +76,11 @@ elif mode == 'mixCat':
     # mongoObj = Mix12()
     # mongoObj = Mixbig_5()
     '''compare'''
-    # mongoObj = Mix6()
+    mongoObj = Mix6()
     # mongoObj = Mixbig_Elect_30()
     # mongoObj = Mixbig_Books_3()
     # mongoObj = Pure_kitchen()
-    mongoObj = Pure_Cloth()
+    # mongoObj = Pure_Cloth()
     
     main_cat = mongoObj.getAttr()
     print("make data dict from Mix cat : %s " % (main_cat))
@@ -187,7 +187,8 @@ def make_review(df):
                 lemm_summary = summary_clean(summary) 
                 temp_summary = " ".join([t for t in lemm_summary.replace('<s> ','').replace(" </s>",'').split() if t != ''])
                 lemm_summary_len = len(temp_summary.split(" "))
-                corpus.write(temp_summary)  
+                if lemm_summary_len >= 5:
+                    corpus.write(temp_summary)  
                    
             except Exception as e :
                 continue           
@@ -404,14 +405,14 @@ if not os.path.exists(csv_path):
             data_dict['review_ID'], data_dict['review'], data_dict['summary'], data_dict['orign_review'], data_dict['orign_summary']
             # ------------------------------------------------------------- 
             rev_tokens, summ_tokens = review.split(" "), summary.split(" ")
-            if len(rev_tokens)>500: continue
-            if len(summary)>20: continue
+            # if len(rev_tokens)>500: continue
+            # if len(summary)>20: continue
             # -------------------------------------------------------------  
             summary_blob = TextBlob(summary.replace("<s> ",'').replace(" </s>",''))
             summary_polarity = abs(summary_blob.sentiment.polarity)
             summary_subjectivity = summary_blob.sentiment.subjectivity
-            if summary_polarity == 0: continue
-            if summary_subjectivity == 0: continue
+            # if summary_polarity == 0: continue
+            # if summary_subjectivity == 0: continue
             # -------------------------------------------------------------          
             rev_token_set = set(rev_tokens)
             summ_token_set = set(summ_tokens)
@@ -494,6 +495,7 @@ if not os.path.exists(csv_path):
             j = j + 1
             pbar.update(1)
             pbar.set_description("%s pro review" % (folder))
+            # pbar.set_description("summary_polarity %s , summary_subjectivity %s" % (summary_blob.sentiment.polarity, summary_blob.sentiment.subjectivity))
 
         
         
