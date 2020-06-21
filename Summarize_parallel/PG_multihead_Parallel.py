@@ -50,7 +50,7 @@ parser.add_argument('--max_dec_steps', type=int, default=20)
 parser.add_argument('--min_dec_steps', type=int, default=5)
 parser.add_argument('--max_epochs', type=int, default=15)
 parser.add_argument('--vocab_size', type=int, default=50000)
-parser.add_argument('--beam_size', type=int, default=10)
+parser.add_argument('--beam_size', type=int, default=5)
 parser.add_argument('--batch_size', type=int, default=32)
 
 parser.add_argument('--hidden_dim', type=int, default=512)
@@ -292,7 +292,8 @@ def decode(writer, dataloader, epoch):
         avg_time += cost        
 
         multi_scores, batch_frame = total_evaulate(article_sents, keywords_list, decoded_sents, ref_sents)
-        
+        review_IDS = [review_ID for review_ID in inputs.review_IDS]
+        batch_frame['review_ID'] = review_IDS
         if idx %1000 ==0 and idx >0 : 
             print(idx); 
         if idx == 0: 

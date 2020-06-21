@@ -292,7 +292,8 @@ def decode(writer, dataloader, epoch):
         avg_time += cost        
 
         multi_scores, batch_frame = total_evaulate(article_sents, keywords_list, decoded_sents, ref_sents)
-        
+        review_IDS = [review_ID for review_ID in inputs.review_IDS]
+        batch_frame['review_ID'] = review_IDS        
         if idx %1000 ==0 and idx >0 : 
             print(idx); 
         if idx == 0: 
