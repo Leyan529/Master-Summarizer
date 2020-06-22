@@ -17,7 +17,9 @@ TextBlob = Blobber(analyzer=NaiveBayesAnalyzer())
 import string
 
 from nltk.corpus import stopwords
-from nltk.corpus import wordnet as wn
+# from nltk.corpus import wordnet as wn
+from nltk.stem import WordNetLemmatizer
+from nltk.corpus import wordnet
 # import networkx as nx
 import os
 import pickle
@@ -214,6 +216,37 @@ def ekphrasis_process(paragraphs):
     text = squeeze(text)
     return text
 
+
+lemmatizer = WordNetLemmatizer()
+def nltk2wn_tag(nltk_tag):
+  if nltk_tag.startswith('J'):
+    return wordnet.ADJ
+  elif nltk_tag.startswith('V'):
+    return wordnet.VERB
+  elif nltk_tag.startswith('N'):
+    return wordnet.NOUN
+  elif nltk_tag.startswith('R'):
+    return wordnet.ADV
+  else:                    
+    return None
+
+def lemmatize_sentence(sentence):
+    nltk_tagged = nltk.pos_tag(nltk.word_tokenize(sentence))    
+    wn_tagged = map(lambda x: (x[0], nltk2wn_tag(x[1])), nltk_tagged)
+    res_words = []
+    for word, tag in wn_tagged:
+        # if word in alphbet_stopword: continue
+        if tag is None:                        
+            res_words.append(word)
+        else:
+            res_words.append(lemmatizer.lemmatize(word, tag))
+    text = " ".join(res_words)
+    # text = text.replace(" thi "," this ")
+    # text = text.replace(" wa "," was ")
+    # text = text.replace(" ha "," has ")
+    # text = text.replace(" tha "," that ")
+    return text
+
 # step3 萃取review 名詞特徵 + 詞性還原
 def nltk_noun_pharse_lemm(text):
     remove_chars = '["#$%&\'\"\()*+:<=>?@★【】《》“”‘’[\\]^_`{|}~]+'
@@ -221,32 +254,36 @@ def nltk_noun_pharse_lemm(text):
     
     new_sents, noun_feats = [], []
     for sent in nltk.sent_tokenize(text):
-        
-        doc = nlp(sent)
-        sentence = " ".join(
-            [
-                word.lemma_ if word.pos_.startswith('N') or word.pos_.startswith('J') or
-                            word.pos_.startswith('V') or word.pos_.startswith('R') else word.orth_
-                for word in doc
-                if (
-                (not word.is_space and # 過濾空白
-                # not word.is_digit and
-                not word.is_left_punct and # 過濾左標點符號
-                not word.is_right_punct and # 過濾右標點符號
-                not word.is_bracket and # 過濾括號
-                not word.is_quote and # 過濾引號
-                not word.is_currency and # 過濾錢幣符號
-                not word.is_punct # 過濾標點符號							
-                # word.tag_ not in ["SYM", "HYPH"] and
-                # word.lemma_ != "-PRON-"
-                )
-                )
-            ]
-        ) 
+        '''spacy'''
+        # doc = nlp(sent)
+        # sentence = " ".join(
+        #     [
+        #         word.lemma_ if word.pos_.startswith('N') or word.pos_.startswith('J') or
+        #                     word.pos_.startswith('V') or word.pos_.startswith('R') else word.orth_
+        #         for word in doc
+        #         if (
+        #         (not word.is_space and # 過濾空白
+        #         # not word.is_digit and
+        #         not word.is_left_punct and # 過濾左標點符號
+        #         not word.is_right_punct and # 過濾右標點符號
+        #         not word.is_bracket and # 過濾括號
+        #         not word.is_quote and # 過濾引號
+        #         not word.is_currency and # 過濾錢幣符號
+        #         not word.is_punct # 過濾標點符號							
+        #         # word.tag_ not in ["SYM", "HYPH"] and
+        #         # word.lemma_ != "-PRON-"
+        #         )
+        #         )
+        #     ]
+        # ) 
         '''只有複數變單數'''
         # sentence = TextBlob(sent)
         # sentence = " ".join([str(w.singularize()) for w in sentence.words])
-
+        '''nltk WordNetLemmatizer'''
+        sentence = lemmatize_sentence(sent)
+        sentence = re.sub('[%s]' % re.escape(string.punctuation), '', sentence)
+        sentence = re.sub(r"\b[bcdefghjklmnopqrstuvwxyz#]\b", "", sentence)
+        sentence = re.sub(' +',' ',sentence) # Removing extra spaces
 
         # print(sentence)
         if len(sentence.split(" ")) > 3:
@@ -275,12 +312,11 @@ def review_clean(text):
     # text = nltk_bert_token_sents(text)  
     text = ekphrasis_process(text)
     text, feats = nltk_noun_pharse_lemm(text)
-    text = ['this' if t == 'thi' else t for t in text]
-    text = [t for t in text if t not in alphbet_stopword]
+    # text = ['this' if t == 'thi' else t for t in text]
+    # text = [t for t in text if t not in alphbet_stopword]
     text = " ".join(text)
     text = squeeze(text)
     text = text.replace(" thi "," this ")
-    text = text.replace(" thi "," ")
     text = text.replace(" wa "," was ")
     text = text.replace(" ha "," has ")
     text = text.replace(" tha "," that ")
@@ -301,8 +337,8 @@ def summary_clean(text):
     # text = nltk_bert_token_sents(text)  
     text = ekphrasis_process(text)
     text, _ = nltk_noun_pharse_lemm(text) 
-    text = ['this' if t == 'thi' else t for t in text]
-    text = [t for t in text if t not in alphbet_stopword]
+    # text = ['this' if t == 'thi' else t for t in text]
+    # text = [t for t in text if t not in alphbet_stopword]
     text = "<s> " + " ".join(text) + " </s>"
     text = text.replace("." , "")
     text = squeeze(text)
@@ -310,7 +346,7 @@ def summary_clean(text):
     text = text.replace(" thi "," ")
     text = text.replace(" ha "," has ")
     text = text.replace(" tha "," that ")
-    # print("--------------- summary-------------")
+    # print("---------------summary-------------")
     # print(text)
     # print('*')
     # print('*')
