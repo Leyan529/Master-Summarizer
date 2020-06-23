@@ -5,7 +5,7 @@ import sys
 import codecs
 import argparse
 from fake_useragent import UserAgent
-
+from bs4 import BeautifulSoup
 
 if sys.version_info[0] >= 3:
     import urllib
@@ -67,18 +67,34 @@ if __name__ == '__main__':
         '-m', '--maxreviews', help='Maximum number of reviews per item to download. Default:unlimited',
         required=False,
         type=int, default=-1)
-    parser.add_argument('--id', type=str, default= 'B071CV8CG2', choices=['B071CV8CG2','B019U00D7K'],
+    # B071CV8CG2 (Sony 索尼 PlayStation 4 遊戲機)
+    # B07F981R8M (TCL Smart LED TV 4W 白色 LED燈), 32S327)
+    # B00CJICDSS (TOUGH-GRID 750磅傘繩/降落傘繩 - 美國軍方使用的正版 Mil Spec IV 750磅傘繩 (MIl-C-5040-H) - 100% 尼龍 - 美國製造)
+    # B01I7WNZRC (不銹鋼鈴鐺玩具，適合鳥類、重型 Bird Cage Toys for Parrot, African Greys, Mini Macaws, Small Cockatoos, Cockatiels & More (小號或大號)
+
+    parser.add_argument('--id', type=str, default= 'B01I7WNZRC', choices=['B071CV8CG2','B019U00D7K'],
                         help='Product IDs for which to download reviews', required=False)
+    parser.add_argument('-c', '--captcha', help='Retry on captcha pages until captcha is not asked. Default: skip', required=False,
+                    action='store_true')
     args = parser.parse_args()
+    '''
+    cd D:\WorkSpace\Real_sum_sys
+    d:
+    activate tensorflow
+    python my_crawl_data.py
+    '''
 
     print(args.id)
     # ASID = args.id
     id_ = args.id
-    
+    if not os.path.exists(id_):
+        os.makedirs(id_)
 
     urlPart1 = "http://www.amazon.com/product-reviews/"
     urlPart2 = "/?ie=UTF8&showViewpoints=0&pageNumber="
     urlPart3 = "&sortBy=bySubmissionDateDescending"
+    urlPart4 = "&rh=p_72%3A2661618011&dc&qid=1592571821&rnid=2661617011&ref=sr_nr_p_72_1"
+    product_url = "https://www.amazon.com/dp/%s/ref=cm_cr_arp_d_product_top?ie=UTF8"%(id_)
 
     counterre = re.compile('cm_cr_arp_d_paging_btm_([0-9]+)')
     robotre = re.compile('images-amazon\.com/captcha/')
@@ -90,15 +106,33 @@ if __name__ == '__main__':
 
     total_review_row = []
     total_df = None
-    download_img(id_)
+
+    # basepath = args.out + os.sep + args.domain
+    # img_path = basepath + os.sep + id_
+    download_img(None, id_)
+    htmlpage, code = download_page(product_url, referer, args.maxretries, args.timeout, args.pause)
+    soup = BeautifulSoup(htmlpage,'lxml')
+    prod_dict = {}
+    prod_dict["productTitle"] = soup.find("span", {"id" : "productTitle"}).text.strip()
+    prod_dict["acrCustomerReviewText"] = soup.find("span", {"id" : "acrCustomerReviewText"}).text.strip()
+    prod_dict["feature-bullets"] = soup.find("div", {"id" : "feature-bullets"}).text.strip()
+    TAG_RE = re.compile(r'<[^>]+>')
+    with open('%s/info.txt'%(id_), 'w', encoding='utf-8') as f:
+        for k, v in prod_dict.items():
+            v = re.sub(' +',' ',v) # Removing extra spaces
+            v = TAG_RE.sub('', v)
+            v = re.sub('\n+','\n',v) # Removing extra spaces
+            f.write(k + ': ' + v + '\n')
+
     while page <= lastPage:
         # if not page == 1 and not args.force and os.path.exists(basepath + os.sep + id_ + os.sep + id_ + '_' + str(
         #         page) + '.html'):
         #     print('Already got page ' + str(page) + ' for product ' + id_)
         #     page += 1
         #     continue
+        
         url = urlPart1 + str(id_) + urlPart2 + str(page) + urlPart3
-        print(url)
+        # print(url)
         htmlpage, code = download_page(url, referer, args.maxretries, args.timeout, args.pause)
 
         if htmlpage is None or code != 200:
@@ -132,6 +166,7 @@ if __name__ == '__main__':
             total_df = df
         else:
             total_df = pd.concat([total_df, df])
+        
 
         if len(total_df[total_df["binaryrating"] == "negative"]) >= 5:
             posit_df = total_df[total_df["binaryrating"] == "positive"]
@@ -140,12 +175,22 @@ if __name__ == '__main__':
             posit_df = posit_df.sort_values(by=['date'], ascending = False)
             negat_df = negat_df.sort_values(by=['date'], ascending = False)
 
-            posit_df = posit_df[:5]
-            negat_df = negat_df[:5]
-            list(negat_df['reviewtext']); list(negat_df['lemm_reviewtext'])
+            # posit_df = posit_df[:5]
+            # negat_df = negat_df[:5]
+            
+            # list(negat_df['reviewtext']); list(negat_df['lemm_reviewtext'])
+            if len(total_df) % 10 == 0:
+                print('save data %s'%(len(total_df)))
+                total_df.to_excel('%s/total.xlsx'%(id_))
+                posit_df.to_excel('%s/positive.xlsx'%(id_))
+                negat_df.to_excel('%s/negative.xlsx'%(id_))
 
-            break   
+            # break   
         page += 1  
+        if len(total_df)>1000: 
+            print('save %s data finished %s'%(id_, len(total_df)))
+            break
 
-    print(posit_df[['date','rating']].head())
-    print(negat_df[['date','rating']].head())
+    # print(posit_df[['date','rating']].head())
+    # print(negat_df[['date','rating']].head())
+    

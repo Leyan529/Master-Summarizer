@@ -49,29 +49,6 @@ ent_list = ['PERSON',
 
 i = 0
 
-from transformers import BertModel, BertTokenizer 
-bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-
-import re
-# from data_util.stopwords import *
-
-TAG_RE = re.compile(r'<[^>]+>')
-
-def remove_tags(text):
-    return TAG_RE.sub('', text)
-
-def remove_word5(text):
-    text = str(text)
-    text = text.lower()
-
-    for k, v in contractions.items():
-        if k in text:
-            text = text.replace(k, v)
-
-    for k in html_escape_table:
-        if k in text:
-            text = text.replace(k, "")   
-    return text
 
 def SentProcess(text):
     newText = ""

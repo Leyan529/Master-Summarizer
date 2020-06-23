@@ -23,25 +23,23 @@ def download_img(img_path, asin):
             eachp="https://"+eachp+"jpg"
             if not os.path.exists('images'):
                 os.makedirs('images')
-            with open('images/'+asin+'.jpg', 'wb') as handle:
+            with open('%s/Product.jpg'%(asin), 'wb') as handle:
             # with open(img_path + '/'+asin+'.jpg', 'wb') as handle:
                 response = requests.get(eachp, stream=True)
-
                 if not response.ok:
                     print(response)
 
                 for block in response.iter_content(1024):
                     if not block:
                         break
-
                     handle.write(block)
 
             # print(eachp)
 
 
 
-        saveFile = open('withHeaders.txt','w')
-        saveFile.write(str(respData))
-        saveFile.close()
+        # saveFile = open('withHeaders.txt','w')
+        # saveFile.write(str(respData))
+        # saveFile.close()
     except Exception as e:
          print(str(e))
