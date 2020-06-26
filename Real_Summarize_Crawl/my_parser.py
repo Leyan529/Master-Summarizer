@@ -128,7 +128,7 @@ def parse_page(htmlpage):
         summary_blob = TextBlob(summary)
         summary_polarity = summary_blob.sentiment.polarity
         summary_subjectivity = summary_blob.sentiment.subjectivity
-        if len(lemm_reviewtext.split(" ")) <= 50: continue
+        if len(lemm_reviewtext.split(" ")) <= 30: continue
         # if len(summary.split(" ")) <= 5: continue
         POS_keys, DEP_keys, Noun_adj_keys = get_keys(lemm_reviewtext)
         row.append([rating, date, summary, reviewtext, lemm_reviewtext, binaryrating, POS_keys, DEP_keys, Noun_adj_keys, summary_polarity, summary_subjectivity])

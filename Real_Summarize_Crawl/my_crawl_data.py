@@ -67,12 +67,15 @@ if __name__ == '__main__':
         '-m', '--maxreviews', help='Maximum number of reviews per item to download. Default:unlimited',
         required=False,
         type=int, default=-1)
-    # B071CV8CG2 (Sony 索尼 PlayStation 4 遊戲機)
+    # B071CV8CG2 (Sony 索尼 PlayStation 4 遊戲機)X
     # B07F981R8M (TCL Smart LED TV 4W 白色 LED燈), 32S327)
     # B00CJICDSS (TOUGH-GRID 750磅傘繩/降落傘繩 - 美國軍方使用的正版 Mil Spec IV 750磅傘繩 (MIl-C-5040-H) - 100% 尼龍 - 美國製造)
-    # B01I7WNZRC (不銹鋼鈴鐺玩具，適合鳥類、重型 Bird Cage Toys for Parrot, African Greys, Mini Macaws, Small Cockatoos, Cockatiels & More (小號或大號)
+    # B003VVP0KU (Prevue Hendryx 旅行鳥籠 1305 白色，50.8 公分 x 30.5 公分 x 38.1 公分)
+    # B018L2WM86 (Vont 2 包 LED 露營燈具，超級明亮的便攜式生存燈具，必須在颶風、緊急情況、暴風、停電、原創可摺疊露營燈/燈具（包括 電池）)X
 
-    parser.add_argument('--id', type=str, default= 'B01I7WNZRC', choices=['B071CV8CG2','B019U00D7K'],
+    # B002JAYMEE Neutrogena 露得清 Ultra Sheer Dry-Touch 防水 不油膩防曬乳 含有廣效 SPF 100+ 3液體盎司（約88.7毫升）
+    # B07WSRXMS8 GoPro Hero 8 黑色
+    parser.add_argument('--id', type=str, default= 'B07WSRXMS8', choices=['B071CV8CG2','B019U00D7K'],
                         help='Product IDs for which to download reviews', required=False)
     parser.add_argument('-c', '--captcha', help='Retry on captcha pages until captcha is not asked. Default: skip', required=False,
                     action='store_true')
@@ -179,7 +182,7 @@ if __name__ == '__main__':
             # negat_df = negat_df[:5]
             
             # list(negat_df['reviewtext']); list(negat_df['lemm_reviewtext'])
-            if len(total_df) % 10 == 0:
+            if len(total_df) % 1 == 0:
                 print('save data %s'%(len(total_df)))
                 total_df.to_excel('%s/total.xlsx'%(id_))
                 posit_df.to_excel('%s/positive.xlsx'%(id_))

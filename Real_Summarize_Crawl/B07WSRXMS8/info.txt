@@ -1,0 +1,14 @@
+productTitle: GoPro HERO8 Black - Waterproof Action Camera with Touch Screen 4K Ultra HD Video 12MP Photos 1080p Live Streaming Stabilization
+acrCustomerReviewText: 562 ratings
+feature-bullets: This fits your .
+ Make sure this fits
+by entering your model number.
+P.when("ReplacementPartsBulletLoader").execute(function(module){ module.initializeDPX(); })
+HyperSmooth 2.0: HERO8 Black has three levels of stabilization – On, High and Boost. Get the widest views, or boost to the smoothest video ever offered in a HERO camera. Works with all resolutions and frame rates, and features in-app horizon leveling
+Streamlined Design: The re-imagined shape is more pocketable, and folding fingers at the base let you swap mounts quickly. A new side door makes changing batteries even faster, and the lens is now 2x more impact-resistant compared to previous models
+Expandable Mods: Vloggers, pro filmmakers and aspiring creators can do more than ever imagined with our HERO8 Black mods (sold separately). Media Mod gives you shotgun-mic performance and lets you attach Light Mod and Display Mod to up your capture game
+Live Streaming in 1080p: Share while you’re there. Live stream in 1080p on social media, get HyperSmooth stabilization as you broadcast via the GoPro app and save footage to your SD card to check out later
+TimeWarp 2.0: Capture super-stabilized time lapse videos while moving through an activity. Automatically adjust speed based on motion, scene detection and lighting. Slow the effect to real time – savoring special moments – and then tap to speed it back up
+LiveBurst: Record the moments 1.5 seconds before and after your shot, so you can choose the best single frame for the perfect photo – or an amazing, shareable video
+SuperPhoto + HDR: Capture killer 12-MP photos with improved HDR – while in motion or stationary – with reduced blur and serious detail, even in low-light areas
+Video Capture Resolution: 4K UHD 2160p
