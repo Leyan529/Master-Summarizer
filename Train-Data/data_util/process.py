@@ -16,7 +16,7 @@ from textblob.sentiments import NaiveBayesAnalyzer
 TextBlob = Blobber(analyzer=NaiveBayesAnalyzer())
 import string
 
-from nltk.corpus import stopwords
+# from nltk.corpus import stopwords
 # from nltk.corpus import wordnet as wn
 from nltk.stem import WordNetLemmatizer
 from nltk.corpus import wordnet
@@ -33,10 +33,10 @@ from ekphrasis.dicts.emoticons import emoticons
 
 from ekphrasis.classes.segmenter import Segmenter
 # segmenter using the word statistics from english Wikipedia
-seg_eng = Segmenter(corpus="twitter") 
+seg_eng = Segmenter(corpus="twitter") # english or twitter
 
 from ekphrasis.classes.spellcorrect import SpellCorrector
-sp = SpellCorrector(corpus="twitter") 
+sp = SpellCorrector(corpus="english") # english or twitter
 
 alphbet_stopword = ['','b','c','d','e','f','g','h','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','#']
 
@@ -46,7 +46,7 @@ nltk_stopwords = set(nltk_stopwords.words("english"))
 stpwords_list3 = [f.replace("\n","") for f in open("data_util/stopwords.txt","r",encoding = "utf-8").readlines()]
 stpwords_list3.remove("not")
 stopwords = list(html_escape_table + stpwords_list2) + list(list(nltk_stopwords) + list(stpwords_list1) + list(stpwords_list3))
-
+stopwords = stopwords + ["."] + alphbet_stopword
 # stopwords = list(html_escape_table)  #+ list(stpwords_list1) + list(stpwords_list3)
 print("斷詞辭典 已取得")
 
@@ -79,7 +79,9 @@ text_processor = TextPreProcessor(
     normalize=['url', 'email', 'percent', 'money', 'phone', 'user',
         'time', 'url', 'date','hashtag','number'],
     # terms that will be annotated
-    annotate={"hashtag", "allcaps", "elongated", "repeated",
+    # annotate={"hashtag", "allcaps", "elongated", "repeated",
+    #     'emphasis', 'censored'},
+    annotate={"hashtag", "allcaps", "repeated",
         'emphasis', 'censored'},
     fix_html=True,  # fix HTML tokens
     
@@ -93,8 +95,8 @@ text_processor = TextPreProcessor(
     
     unpack_hashtags=True,  # perform word segmentation on hashtags
     unpack_contractions=True,  # Unpack contractions (can't -> can not)
-    spell_correct_elong=True,  # spell correction for elongated words
-    spell_correction = True,
+    spell_correct_elong=False,  # spell correction for elongated words
+    spell_correction = False,
     # select a tokenizer. You can use SocialTokenizer, or pass your own
     # the tokenizer, should take as input a string and return a list of tokens
     tokenizer=SocialTokenizer(lowercase=True).tokenize,
@@ -102,6 +104,7 @@ text_processor = TextPreProcessor(
     # list of dictionaries, for replacing tokens extracted from the text,
     # with other expressions. You can pass more than one dictionaries.
     dicts=[emoticons]
+    # mode = 'fast'
 )    
 
 # ---------------------pipeline----------------------------
@@ -208,9 +211,10 @@ def ekphrasis_process(paragraphs):
     segment_tokens = [token for token in segment_tokens if token not in alphbet_stopword]
         
     # Spell Correction(for dictionary corpus)   
-    # correct_tokens = [sp.correct(token) if token != '.' else token for token in segment_tokens ]
+    correct_tokens = [token if token in stopwords else sp.correct(token) for token in segment_tokens ]
 
-    text = remove_tags(" ".join(segment_tokens))
+    # text = remove_tags(" ".join(segment_tokens))
+    text = remove_tags(" ".join(correct_tokens))
     # remove_chars = '["#$%&\'\"\()*+:<=>?@★【】《》“”‘’[\\]^_`{|}~]+'
     # text = re.sub(remove_chars, "", text)  # remove number and segment
     text = squeeze(text)
@@ -315,11 +319,14 @@ def review_clean(text):
     # text = ['this' if t == 'thi' else t for t in text]
     # text = [t for t in text if t not in alphbet_stopword]
     text = " ".join(text)
+    '''remove continuous same words'''
+    while re.search(r'\b(.+)(\s+\1\b)+', text):
+        text = re.sub(r'\b(.+)(\s+\1\b)+', r'\1', text)
     text = squeeze(text)
-    text = text.replace(" thi "," this ")
-    text = text.replace(" wa "," was ")
-    text = text.replace(" ha "," has ")
-    text = text.replace(" tha "," that ")
+    # text = text.replace(" thi "," this ")
+    # text = text.replace(" wa "," was ")
+    # text = text.replace(" ha "," has ")
+    # text = text.replace(" tha "," that ")
     # print("--------------- review-------------")
     # print(nltk.sent_tokenize(text))
     # print('*')
@@ -341,11 +348,14 @@ def summary_clean(text):
     # text = [t for t in text if t not in alphbet_stopword]
     text = "<s> " + " ".join(text) + " </s>"
     text = text.replace("." , "")
+    '''remove continuous same words'''
+    while re.search(r'\b(.+)(\s+\1\b)+', text):
+        text = re.sub(r'\b(.+)(\s+\1\b)+', r'\1', text)
     text = squeeze(text)
-    text = text.replace(" thi "," this ")
-    text = text.replace(" thi "," ")
-    text = text.replace(" ha "," has ")
-    text = text.replace(" tha "," that ")
+    # text = text.replace(" thi "," this ")
+    # text = text.replace(" thi "," ")
+    # text = text.replace(" ha "," has ")
+    # text = text.replace(" tha "," that ")
     # print("---------------summary-------------")
     # print(text)
     # print('*')

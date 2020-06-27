@@ -76,11 +76,11 @@ elif mode == 'mixCat':
     # mongoObj = Mix12()
     # mongoObj = Mixbig_5()
     '''compare'''
-    mongoObj = Mix6()
+    # mongoObj = Mix6()
     # mongoObj = Mixbig_Elect_30()
     # mongoObj = Mixbig_Books_3()
     # mongoObj = Pure_kitchen()
-    # mongoObj = Pure_Cloth()
+    mongoObj = Pure_Cloth()
     
     main_cat = mongoObj.getAttr()
     print("make data dict from Mix cat : %s " % (main_cat))
@@ -152,6 +152,8 @@ else:
     writer.book.use_zip64()
     df.to_excel(writer, index = False)
     # df.to_excel(csv_path, encoding='utf8', engine='xlsxwriter')
+    writer.save()
+    writer.close()
     print(csv_path + " Write finished") 
 
 import pandas as pd
@@ -205,6 +207,7 @@ def make_review(df):
             lemm_summary_len_list.append(lemm_summary_len)   
             orign_review_list.append(review)
             orign_summary_list.append(summary)
+            # if i >= 1000: break
             # break
 
         df = pd.DataFrame({"asin":asin_list,"orign_review": orign_review_list, "orign_summary": orign_summary_list,
@@ -244,6 +247,9 @@ if not os.path.exists(csv_path):
     #THIS
     writer.book.use_zip64()
     orign_key_df.to_excel(writer, index = False)
+    # Close the Pandas Excel writer and output the Excel file.
+    writer.save()
+    writer.close()
     print(csv_path + " Write finished")   
 else:    
     orign_key_df = pd.read_excel(csv_path)
@@ -332,6 +338,8 @@ print('make %s finished'%(csv_path))
 df = df[(df.lemm_summary_len >= 4) ] # 過濾single word summary
 df = df[(df.lemm_review_len <= 1000) ] # 過濾single word summary
 df = df[(df.lemm_review_len >= 20) ] # 過濾single word summary
+df = df[(df.lemm_review_len <= 500) ] # 過濾single word summary
+df = df[(df.lemm_summary_len <= 20) ] # 過濾single word summary
 
 df = df.reset_index(drop=True)
 # ----------------------------------------------------
@@ -400,19 +408,21 @@ if not os.path.exists(csv_path):
         for idx in range(len(df)):           
             series = df.iloc[idx]
             data_dict = series.to_dict()
-
+            pbar.update(1)
+            pbar.set_description("%s pro review" % (folder))
             review_ID , review , summary , orign_review, orign_summary = \
             data_dict['review_ID'], data_dict['review'], data_dict['summary'], data_dict['orign_review'], data_dict['orign_summary']
             # ------------------------------------------------------------- 
             rev_tokens, summ_tokens = review.split(" "), summary.split(" ")
             # if len(rev_tokens)>500: continue
-            # if len(summary)>20: continue
+            # if len(summ_tokens)>20: continue
             # -------------------------------------------------------------  
             summary_blob = TextBlob(summary.replace("<s> ",'').replace(" </s>",''))
             summary_polarity = abs(summary_blob.sentiment.polarity)
             summary_subjectivity = summary_blob.sentiment.subjectivity
-            # if summary_polarity == 0: continue
-            # if summary_subjectivity == 0: continue
+            
+            if summary_polarity == 0: continue
+            if summary_subjectivity == 0: continue
             # -------------------------------------------------------------          
             rev_token_set = set(rev_tokens)
             summ_token_set = set(summ_tokens)
@@ -420,6 +430,7 @@ if not os.path.exists(csv_path):
             cheat = rev_token_set & summ_token_set & ( review_keywords | set(opinion_lexicon["total-words"]) )
             if len(cheat) < 3 : continue # => 最佳
             cheat_num = len(cheat)
+            summary_check = len(summ_token_set & review_keywords)>0
 
             overlap = len(rev_token_set & summ_token_set)
             # if len(rev_token_set & summ_token_set) > 0.7*(len(summ_token_set)) : continue # => 避免過高重疊
@@ -489,12 +500,13 @@ if not os.path.exists(csv_path):
                 "token_lcs": token_lcs,
                 #-----------------------------------------------------------
                 "summary_polarity": summary_blob.sentiment.polarity,
-                "summary_subjectivity": summary_blob.sentiment.subjectivity
+                "summary_subjectivity": summary_blob.sentiment.subjectivity,
+                "summary_check": summary_check
             }
             pro_df[j] = save_dict
             j = j + 1
-            pbar.update(1)
-            pbar.set_description("%s pro review" % (folder))
+            # pbar.update(1)
+            # pbar.set_description("%s pro review" % (folder))
             # pbar.set_description("summary_polarity %s , summary_subjectivity %s" % (summary_blob.sentiment.polarity, summary_blob.sentiment.subjectivity))
 
         
@@ -505,6 +517,9 @@ if not os.path.exists(csv_path):
         writer.book.use_zip64()
         pro_df2 = pd.DataFrame.from_dict(pro_df, orient='index')
         pro_df2.to_excel(writer, index = False)
+        # Close the Pandas Excel writer and output the Excel file.
+        writer.save()
+        writer.close()
         print(csv_path + " Write finished") 
         # pro_df.to_excel(csv_path, encoding='utf8', engine='xlsxwriter')
         # print(csv_path + " Write finished")   
@@ -658,7 +673,7 @@ if not os.path.exists('%s/Embedding/FastText'%(folder)):
 # Embedding/FastText
 def train_FastText(vector_size):
     if not os.path.exists("%s/Embedding/FastText/FastText.%sd.txt"%(folder, vector_size)):
-        fasttext = FastText(embedding_corpus, size=vector_size, min_count=1,max_vocab_size=None,iter=100,
+        fasttext = FastText(embedding_corpus, size=vector_size, min_count=3,max_vocab_size=None,iter=100,
                                 sorted_vocab=1)    
 
         fasttext.wv.save_word2vec_format('%s/Embedding/FastText/FastText.%sd.txt'%(folder, vector_size), binary=False)
@@ -689,8 +704,8 @@ def bulid_FastText_vocab(wvmodel):
 
 wvmodel = train_FastText(vector_size = 300)
 bulid_FastText_vocab(wvmodel)
-# train_FastText(vector_size = 512)
-# wvmodel = train_FastText(vector_size = 768)
+# # train_FastText(vector_size = 512)
+# # wvmodel = train_FastText(vector_size = 768)
 
 
 
