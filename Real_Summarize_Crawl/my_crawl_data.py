@@ -61,21 +61,23 @@ if __name__ == '__main__':
         '-t', '--timeout', help='Timeout in seconds for http connections. Default: 180',
         required=False, type=int, default=180)
     parser.add_argument(
-        '-p', '--pause', help='Seconds to wait between http requests. Default: 1', required=False, default=1,
+        '-p', '--pause', help='Seconds to wait between http requests. Default: 1', required=False, default=5,
         type=float)
     parser.add_argument(
         '-m', '--maxreviews', help='Maximum number of reviews per item to download. Default:unlimited',
         required=False,
         type=int, default=-1)
     # B071CV8CG2 (Sony 索尼 PlayStation 4 遊戲機)X
-    # B07F981R8M (TCL Smart LED TV 4W 白色 LED燈), 32S327)
-    # B00CJICDSS (TOUGH-GRID 750磅傘繩/降落傘繩 - 美國軍方使用的正版 Mil Spec IV 750磅傘繩 (MIl-C-5040-H) - 100% 尼龍 - 美國製造)
-    # B003VVP0KU (Prevue Hendryx 旅行鳥籠 1305 白色，50.8 公分 x 30.5 公分 x 38.1 公分)
     # B018L2WM86 (Vont 2 包 LED 露營燈具，超級明亮的便攜式生存燈具，必須在颶風、緊急情況、暴風、停電、原創可摺疊露營燈/燈具（包括 電池）)X
+    # ---------------------------------------------------------------------------------------------------------------------------
+    # B07F981R8M (TCL Smart LED TV 4W 白色 LED燈), 32S327) # 591
+    # B07WSRXMS8 GoPro Hero 8 黑色 # 79
+    # B00CJICDSS (TOUGH-GRID 750磅傘繩/降落傘繩 - 美國軍方使用的正版 Mil Spec IV 750磅傘繩 (MIl-C-5040-H) - 100% 尼龍 - 美國製造) # 931
+    # B003VVP0KU (Prevue Hendryx 旅行鳥籠 1305 白色，50.8 公分 x 30.5 公分 x 38.1 公分) # 262
 
-    # B002JAYMEE Neutrogena 露得清 Ultra Sheer Dry-Touch 防水 不油膩防曬乳 含有廣效 SPF 100+ 3液體盎司（約88.7毫升）
-    # B07WSRXMS8 GoPro Hero 8 黑色
-    parser.add_argument('--id', type=str, default= 'B07WSRXMS8', choices=['B071CV8CG2','B019U00D7K'],
+    # B002JAYMEE Neutrogena 露得清 Ultra Sheer Dry-Touch 防水 不油膩防曬乳 含有廣效 SPF 100+ 3液體盎司（約88.7毫升）# 569
+    
+    parser.add_argument('--id', type=str, default= 'B002JAYMEE', choices=['B071CV8CG2','B019U00D7K'],
                         help='Product IDs for which to download reviews', required=False)
     parser.add_argument('-c', '--captcha', help='Retry on captcha pages until captcha is not asked. Default: skip', required=False,
                     action='store_true')
