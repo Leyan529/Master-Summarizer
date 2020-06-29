@@ -76,11 +76,11 @@ elif mode == 'mixCat':
     # mongoObj = Mix12()
     # mongoObj = Mixbig_5()
     '''compare'''
-    # mongoObj = Mix6()
+    mongoObj = Mix6()
     # mongoObj = Mixbig_Elect_30()
     # mongoObj = Mixbig_Books_3()
     # mongoObj = Pure_kitchen()
-    mongoObj = Pure_Cloth()
+    # mongoObj = Pure_Cloth()
     
     main_cat = mongoObj.getAttr()
     print("make data dict from Mix cat : %s " % (main_cat))
@@ -428,9 +428,9 @@ if not os.path.exists(csv_path):
             summ_token_set = set(summ_tokens)
             
             cheat = rev_token_set & summ_token_set & ( review_keywords | set(opinion_lexicon["total-words"]) )
-            if len(cheat) < 3 : continue # => 最佳
             cheat_num = len(cheat)
-            summary_check = len(summ_token_set & review_keywords)>0
+            # if cheat_num < 3 : continue # => 最佳 # cheat_num待驗測
+            summary_check = len(summ_token_set & review_keywords) # 摘要與keyword重疊率
 
             overlap = len(rev_token_set & summ_token_set)
             # if len(rev_token_set & summ_token_set) > 0.7*(len(summ_token_set)) : continue # => 避免過高重疊
