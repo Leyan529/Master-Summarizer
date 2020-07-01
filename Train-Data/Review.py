@@ -337,9 +337,10 @@ print('make %s finished'%(csv_path))
 
 df = df[(df.lemm_summary_len >= 4) ] # 過濾single word summary
 df = df[(df.lemm_review_len <= 1000) ] # 過濾single word summary
-df = df[(df.lemm_review_len >= 20) ] # 過濾single word summary
-df = df[(df.lemm_review_len <= 500) ] # 過濾single word summary
+df = df[(df.lemm_review_len >= 25) ] # 過濾single word summary
 df = df[(df.lemm_summary_len <= 20) ] # 過濾single word summary
+
+# df = df[(df.lemm_review_len <= 500) ] # 過濾single word summary
 
 df = df.reset_index(drop=True)
 # ----------------------------------------------------
@@ -438,9 +439,9 @@ if not os.path.exists(csv_path):
             POS_keys , DEP_keys, Noun_adj_keys = [] , [] , []
             for sent in review.split(" . "):
                 # pos
-                POS_keys = POS_keys + extract_POS(sent).run()[0]
+                # POS_keys = POS_keys + extract_POS(sent).run()[0]
                 # dep
-                DEP_keys = DEP_keys + extract_DEP(sent).run()[0]
+                # DEP_keys = DEP_keys + extract_DEP(sent).run()[0]
                 # noun_adj
                 Noun_adj_keys = Noun_adj_keys + noun_adj(sent)[0]
 
@@ -450,8 +451,8 @@ if not os.path.exists(csv_path):
             # TextRank
             TextRank_keywords = []
 
-            for words in TextRank.keywords(review).split('\n'):
-                TextRank_keywords.extend(words.split(" "))
+            # for words in TextRank.keywords(review).split('\n'):
+            #     TextRank_keywords.extend(words.split(" "))
 
             # print(TextRank_keywords)
             # TextRank_keywords = " ".join(TextRank_keywords)
@@ -465,9 +466,9 @@ if not os.path.exists(csv_path):
             sort_overlap_sent = {k:v for k,v in sorted(overlap_sents.items(), key= lambda item: item[1], reverse=True)}
             overlap_sent_id = list(sort_overlap_sent.items())[0][0]
 
-            if (overlap_sent_id == 0) and (percent_lcs >= 20): overlap_pos = 0 # overlap_Top 
-            elif (overlap_sent_id == len(rev_tokens)-1) and (percent_lcs >= 20): overlap_pos = 1 # overlap_Final 
-            elif (percent_lcs >= 20): overlap_pos = 2 # overlap_other 
+            if (overlap_sent_id == 0) and (percent_lcs >= 50): overlap_pos = 0 # overlap_Top 
+            elif (overlap_sent_id == len(rev_tokens)-1) and (percent_lcs >= 50): overlap_pos = 1 # overlap_Final 
+            elif ((percent_lcs >= 20) and (percent_lcs >= 50)): overlap_pos = 2 # overlap_other 
             else: overlap_pos = -1 # no overlap             
             # -------------------------------------------------------------
             rating = data_dict['overall']
