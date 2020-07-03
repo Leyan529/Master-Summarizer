@@ -76,10 +76,10 @@ elif mode == 'mixCat':
     # mongoObj = Mix12()
     # mongoObj = Mixbig_5()
     '''compare'''
-    mongoObj = Mix6()
+    # mongoObj = Mix6()
     # mongoObj = Mixbig_Elect_30()
     # mongoObj = Mixbig_Books_3()
-    # mongoObj = Pure_kitchen()
+    mongoObj = Pure_kitchen()
     # mongoObj = Pure_Cloth()
     
     main_cat = mongoObj.getAttr()
@@ -472,11 +472,13 @@ if not os.path.exists(csv_path):
             else: overlap_pos = -1 # no overlap             
             # -------------------------------------------------------------
             rating = data_dict['overall']
+            binaryrating = 'positive' if rating >=4 else 'negative'
+            summary_conflict = (binaryrating== 'positive' and summary_blob.sentiment.polarity<0) or (binaryrating== 'negative' and summary_blob.sentiment.polarity>0)
             save_dict = {
                 "review_ID": str(review_ID),
                 "rating": rating,
                 "vote": data_dict['vote'],
-                "binaryrating": 'positive' if rating >=4 else 'negative',
+                "binaryrating": binaryrating,
                 "orign_review": orign_review,
                 'orign_summary':orign_summary,
                 "review": review.strip(),
@@ -502,7 +504,8 @@ if not os.path.exists(csv_path):
                 #-----------------------------------------------------------
                 "summary_polarity": summary_blob.sentiment.polarity,
                 "summary_subjectivity": summary_blob.sentiment.subjectivity,
-                "summary_check": summary_check
+                "summary_check": summary_check,
+                "summary_conflict":summary_conflict
             }
             pro_df[j] = save_dict
             j = j + 1
@@ -600,6 +603,7 @@ def make_corpus():
             # tokens = [token for token in tokens if (token != '' and token.isalpha() and token not in alphbet_stopword)]
             tokens = clean_wordlist(tokens)
             # tokens = [token for token in tokens if (token != '' )] # => 最佳
+            if len(tokens) < 5 : continue
             corpus.append(tokens)
             embedding_corpus.append(tokens)
     print('make corpus finished...')

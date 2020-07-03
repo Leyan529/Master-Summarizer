@@ -1,8 +1,8 @@
 # ! pip install nltk==3.5
 import nltk
 import re
-from transformers import BertTokenizer 
-bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+# from transformers import BertTokenizer 
+# bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
 import spacy
 import en_core_web_sm
@@ -91,7 +91,7 @@ text_processor = TextPreProcessor(
     
     # corpus from which the word statistics are going to be used 
     # for spell correction
-    corrector="twitter", 
+    corrector="english", 
     
     unpack_hashtags=True,  # perform word segmentation on hashtags
     unpack_contractions=True,  # Unpack contractions (can't -> can not)
@@ -148,7 +148,7 @@ def remove_symbol(text):
         text = re.sub('\[.*?\]', '', text)
         text = re.sub('\[*?\]', '', text)
         # text = re.sub('[%s]' % re.escape(string.punctuation), '', text)
-        text = re.sub('\w*\d\w*', '', text) # W*:A-Z  d:digit
+        # text = re.sub('\w*\d\w*', '', text) # W*:A-Z  d:digit   # 取消刪除數字    
         return text
     def clean_text_round2(text):
         '''Get rid of some additional punctuation and non-sensical text that was missed the first time around.'''
@@ -191,14 +191,14 @@ def clean_wordlist(wordlist):
     ]
     return wordlist
 
-def nltk_bert_token_sents(text):
-    text = [
-                " ".join([token for token in bert_tokenizer.tokenize(sent)])
-                for sent in nltk.sent_tokenize(text)
-           ]
-    text = " ".join(text).replace(" ##","")
-    # text = " ".join(clean_wordlist(text.split(" ")))
-    return text
+# def nltk_bert_token_sents(text):
+#     text = [
+#                 " ".join([token for token in bert_tokenizer.tokenize(sent)])
+#                 for sent in nltk.sent_tokenize(text)
+#            ]
+#     text = " ".join(text).replace(" ##","")
+#     # text = " ".join(clean_wordlist(text.split(" ")))
+#     return text
 
 def ekphrasis_process(paragraphs):
     # ekphrasis 語料修正 + 語料切詞
@@ -290,7 +290,7 @@ def nltk_noun_pharse_lemm(text):
         sentence = re.sub(' +',' ',sentence) # Removing extra spaces
 
         # print(sentence)
-        if len(sentence.split(" ")) > 3:
+        if len(sentence.split(" ")) > 1:
             sentence = sentence + " ."
             new_sents.append(sentence)
             text_keywords = extract_PF(sentence).run()
@@ -308,9 +308,9 @@ def squeeze(s):
     return s
 
 def review_clean(text):
+    # text = "I have an apple abc123 123 0.45 0.45 . 0.45 a tiger has a women called women.7 ."
     # print("---------------orign review-------------")
     # print(text)
-
     text = lower_remove_simple_html(text)
     text = remove_symbol(text)
     # text = nltk_bert_token_sents(text)  
