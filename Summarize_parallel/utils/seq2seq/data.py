@@ -30,7 +30,8 @@ def make_vocab(vocab_file, vocab_size):
     word2id, id2word = {}, {}
     for i, t in enumerate(special_tokens):
         word2id[t], id2word[i] = i, t
-
+    vocab_file = os.path.abspath(vocab_file).replace('Summarize_parallel/','/')
+    # print(vocab_file)
     with open(vocab_file, 'r') as vocab_f:
         for i,line in enumerate(vocab_f):
             pieces = line.split()

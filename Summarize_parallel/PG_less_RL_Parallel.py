@@ -30,12 +30,12 @@ eval_gpu = 0
 parser = argparse.ArgumentParser()
 parser.add_argument('--key_attention', type=bool, default=False, help = 'True/False')
 parser.add_argument('--intra_encoder', type=bool, default=False, help = 'True/False')
-parser.add_argument('--intra_decoder', type=bool, default=True, help = 'True/False')
+parser.add_argument('--intra_decoder', type=bool, default=False, help = 'True/False')
 parser.add_argument('--copy', type=bool, default=True, help = 'True/False') # for transformer
 
 
 parser.add_argument('--model_type', type=str, default='seq2seq', choices=['seq2seq', 'transformer'])
-parser.add_argument('--train_rl', type=bool, default=False, help = 'True/False')
+parser.add_argument('--train_rl', type=bool, default=True, help = 'True/False')
 parser.add_argument('--keywords', type=str, default='Noun_adj_keys', 
                     help = 'POS_keys / DEP_keys / Noun_adj_keys / TextRank_keys')
 
@@ -50,7 +50,7 @@ parser.add_argument('--max_dec_steps', type=int, default=20)
 parser.add_argument('--min_dec_steps', type=int, default=6)
 parser.add_argument('--max_epochs', type=int, default=15)
 parser.add_argument('--vocab_size', type=int, default=50000)
-parser.add_argument('--beam_size', type=int, default=5)
+parser.add_argument('--beam_size', type=int, default=16)
 parser.add_argument('--batch_size', type=int, default=32)
 
 parser.add_argument('--hidden_dim', type=int, default=512)
@@ -65,8 +65,8 @@ parser.add_argument('--pre_train_emb', type=bool, default=True, help = 'True/Fal
 opt = parser.parse_args(args=[])
 config = re_config(opt)
 loggerName, writerPath = getName(config)   
-loggerName = loggerName.replace('Pointer_generator','Pointer_MultiHead')
-writerPath = writerPath.replace('Pointer-Generator','Pointer_MultiHead')
+loggerName = loggerName.replace('Pointer_generator','Pointer_less_RL')
+writerPath = writerPath.replace('Pointer-Generator','Pointer_less_RL')
 
 logger = getLogger(loggerName)
 writer = SummaryWriter(writerPath)
@@ -86,7 +86,7 @@ save_steps = int(train_batches/250)*250
 # In[3]:
 
 
-from create_model.pg_multi_head import Model
+from create_model.pointer_less import Model
 import torch.nn as nn
 import torch as T
 import torch.nn.functional as F
@@ -293,7 +293,7 @@ def decode(writer, dataloader, epoch):
 
         multi_scores, batch_frame = total_evaulate(article_sents, keywords_list, decoded_sents, ref_sents)
         review_IDS = [review_ID for review_ID in inputs.review_IDS]
-        batch_frame['review_ID'] = review_IDS
+        batch_frame['review_ID'] = review_IDS        
         if idx %1000 ==0 and idx >0 : 
             print(idx); 
         if idx == 0: 

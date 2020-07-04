@@ -28,14 +28,14 @@ eval_gpu = 0
 # os.environ['CUDA_LAUNCH_BLOCKING'] = "1" 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--key_attention', type=bool, default=False, help = 'True/False')
-parser.add_argument('--intra_encoder', type=bool, default=False, help = 'True/False')
+parser.add_argument('--key_attention', type=bool, default=True, help = 'True/False')
+parser.add_argument('--intra_encoder', type=bool, default=True, help = 'True/False')
 parser.add_argument('--intra_decoder', type=bool, default=True, help = 'True/False')
 parser.add_argument('--copy', type=bool, default=True, help = 'True/False') # for transformer
 
 
 parser.add_argument('--model_type', type=str, default='seq2seq', choices=['seq2seq', 'transformer'])
-parser.add_argument('--train_rl', type=bool, default=False, help = 'True/False')
+parser.add_argument('--train_rl', type=bool, default=True, help = 'True/False')
 parser.add_argument('--keywords', type=str, default='Noun_adj_keys', 
                     help = 'POS_keys / DEP_keys / Noun_adj_keys / TextRank_keys')
 
@@ -50,7 +50,7 @@ parser.add_argument('--max_dec_steps', type=int, default=20)
 parser.add_argument('--min_dec_steps', type=int, default=6)
 parser.add_argument('--max_epochs', type=int, default=15)
 parser.add_argument('--vocab_size', type=int, default=50000)
-parser.add_argument('--beam_size', type=int, default=5)
+parser.add_argument('--beam_size', type=int, default=16)
 parser.add_argument('--batch_size', type=int, default=32)
 
 parser.add_argument('--hidden_dim', type=int, default=512)
@@ -64,10 +64,7 @@ parser.add_argument('--pre_train_emb', type=bool, default=True, help = 'True/Fal
 
 opt = parser.parse_args(args=[])
 config = re_config(opt)
-loggerName, writerPath = getName(config)   
-loggerName = loggerName.replace('Pointer_generator','Pointer_MultiHead')
-writerPath = writerPath.replace('Pointer-Generator','Pointer_MultiHead')
-
+loggerName, writerPath = getName(config)    
 logger = getLogger(loggerName)
 writer = SummaryWriter(writerPath)
 
@@ -86,7 +83,7 @@ save_steps = int(train_batches/250)*250
 # In[3]:
 
 
-from create_model.pg_multi_head import Model
+from create_model.pg import Model
 import torch.nn as nn
 import torch as T
 import torch.nn.functional as F
@@ -265,13 +262,16 @@ from utils.seq2seq.write_result import total_evaulate, total_output
 def decode(writer, dataloader, epoch):
     # 動態取batch
     num = len(dataloader)
+    avg_rouge_1, avg_rouge_2, avg_rouge_l  = [], [], []
+    avg_self_bleu1, avg_self_bleu2, avg_self_bleu3, avg_self_bleu4 = [], [], [], []
+    avg_bleu1, avg_bleu2, avg_bleu3, avg_bleu4 = [], [], [], []
+    avg_meteor = []
     outFrame = None
     avg_time = 0
-    total_scores = dict()   
-    idx = 0 
-    for _, inputs in enumerate(dataloader):
+        
+    for idx, inputs in enumerate(dataloader):
         start = time.time() 
-        # 'Encoder data'
+#         'Encoder data'
         enc_batch, enc_padding_mask, enc_lens, enc_batch_extend_vocab, extra_zeros, coverage,             ct_e, enc_key_batch, enc_key_mask, enc_key_lens = get_input_from_batch(inputs, config, batch_first = True)
         max_enc_len = max(T.max(enc_lens,dim=0)).tolist()[0] 
         
@@ -282,7 +282,7 @@ def decode(writer, dataloader, epoch):
 
         enc_out, enc_hidden = parallel_model.module.encoder(enc_batch, enc_lens, max_enc_len)
         
-        # 'Feed encoder data to predict'
+#         'Feed encoder data to predict'
         pred_ids = beam_search(enc_hidden, enc_out, enc_padding_mask, ct_e, extra_zeros, 
                                 enc_batch_extend_vocab, enc_key_batch, enc_key_mask, parallel_model.module, 
                                 START, END, UNKNOWN_TOKEN)
@@ -291,47 +291,53 @@ def decode(writer, dataloader, epoch):
         cost = (time.time() - start)
         avg_time += cost        
 
-        multi_scores, batch_frame = total_evaulate(article_sents, keywords_list, decoded_sents, ref_sents)
-        review_IDS = [review_ID for review_ID in inputs.review_IDS]
-        batch_frame['review_ID'] = review_IDS
-        if idx %1000 ==0 and idx >0 : 
-            print(idx); 
-        if idx == 0: 
-            outFrame = batch_frame; 
-            total_scores = multi_scores
-        else: 
-            outFrame = pd.concat([outFrame, batch_frame], axis=0, ignore_index=True) 
-            for key, scores in total_scores.items():
-                scores.extend(multi_scores[key])
-                total_scores[key] = scores
-        idx += 1
+        
+        rouge_1, rouge_2, rouge_l,             Bleu_1, Bleu_2, Bleu_3, Bleu_4, Meteor, batch_frame = total_evaulate(article_sents, keywords_list, decoded_sents, ref_sents)
+        
+        if idx %1000 ==0 and idx >0 : print(idx); 
+        if idx == 0: outFrame = batch_frame
+        else: outFrame = pd.concat([outFrame, batch_frame], axis=0, ignore_index=True) 
+        # ----------------------------------------------------
+        avg_rouge_1.extend(rouge_1)
+        avg_rouge_2.extend(rouge_2)
+        avg_rouge_l.extend(rouge_l)   
+        
+        #avg_self_bleu1.extend(self_Bleu_1)
+        #avg_self_bleu2.extend(self_Bleu_2)
+        #avg_self_bleu3.extend(self_Bleu_3)
+        #avg_self_bleu4.extend(self_Bleu_4)
+        
+        avg_bleu1.extend(Bleu_1)
+        avg_bleu2.extend(Bleu_2)
+        avg_bleu3.extend(Bleu_3)
+        avg_bleu4.extend(Bleu_4)
+        avg_meteor.extend(Meteor)
         # ----------------------------------------------------    
     avg_time = avg_time / (num * config.batch_size)    
-
-    scalar_acc = {}
-    num = 0
-    for key, scores in total_scores.items():
-        num = len(scores)
-        scalar_acc[key] = sum(scores)/len(scores)
-
+    
+    scalar_acc = {
+        'rouge_1':sum(avg_rouge_1) / len(avg_rouge_1),
+        'rouge_2':sum(avg_rouge_2) / len(avg_rouge_2),
+        'rouge_l':sum(avg_rouge_l) / len(avg_rouge_l),
+        
+        'bleu1':sum(avg_bleu1) / len(avg_bleu1),
+        'bleu2':sum(avg_bleu2) / len(avg_bleu2),
+        'bleu3':sum(avg_bleu3) / len(avg_bleu3),
+        'bleu4':sum(avg_bleu4) / len(avg_bleu4),
+        
+        'meteor':sum(avg_meteor) / len(avg_meteor)
+    }
+    
     for scalar_name, accuracy in scalar_acc.items():
-        if 'rouge_1' in scalar_name:
-            writer.add_scalars('scalar/rouge_1',  
-               {scalar_name: accuracy,
-               }, epoch)
-        elif 'rouge_2' in scalar_name:
-            writer.add_scalars('scalar/rouge_2',  
-               {scalar_name: accuracy,
-               }, epoch)
-        elif 'rouge_l' in scalar_name:
-            writer.add_scalars('scalar/rouge_l',  
+        if 'rouge' in scalar_name:
+            writer.add_scalars('scalar/rouge',  
                {scalar_name: accuracy,
                }, epoch)
         elif 'bleu' in scalar_name:
             writer.add_scalars('scalar/bleu',  
                {scalar_name: accuracy,
                }, epoch)
-        elif 'meteor' in scalar_name:
+        else:
             writer.add_scalars('scalar/meteor',  
                {scalar_name: accuracy,
                }, epoch)
@@ -383,7 +389,6 @@ def decode(writer, dataloader, epoch):
                         " + view_item['article'], epoch)
         i += 1
     return outFrame
-
 
 
 # In[ ]:
@@ -541,12 +546,6 @@ if not eval_model:
 # In[ ]:
 
 
-test_outFrame.head()
-
-
-# In[ ]:
-
-
 test_outFrame.columns
 
 
@@ -563,10 +562,4 @@ test_outFrame[test_outFrame["rouge_1"]>=0.4][['rouge_1','article', 'reference', 
 # testing_avg_rouge_1: 0.3873426628114616 \n', 
 # 'testing_avg_rouge_2: 0.25943944916828854 \n', 
 # 'testing_avg_rouge_l: 0.3614074094052472 \n
-
-
-# In[ ]:
-
-
-# scalar_acc.items()
 

@@ -47,10 +47,10 @@ parser.add_argument('--gound_truth_prob', type=float, default=0.5)
 
 parser.add_argument('--max_enc_steps', type=int, default=500)
 parser.add_argument('--max_dec_steps', type=int, default=20)
-parser.add_argument('--min_dec_steps', type=int, default=5)
+parser.add_argument('--min_dec_steps', type=int, default=6)
 parser.add_argument('--max_epochs', type=int, default=15)
 parser.add_argument('--vocab_size', type=int, default=50000)
-parser.add_argument('--beam_size', type=int, default=13)
+parser.add_argument('--beam_size', type=int, default=16)
 parser.add_argument('--batch_size', type=int, default=32)
 
 parser.add_argument('--hidden_dim', type=int, default=512)

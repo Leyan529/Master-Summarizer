@@ -38,7 +38,7 @@ def clean_wordlist(wordlist):
 class Example:
     def __init__(self, config, vocab, data):        
         review_ID = data['review_ID'].strip()
-        article = data['review'].strip().replace(" thi "," this ")
+        article = data['review'].strip()
         abstract = data['summary'].strip().replace("<s>","").replace("</s>","")
         # keywords = data['POS_FOP_keywords']       
         keywords = data[config.keywords]
@@ -171,6 +171,7 @@ def getDataLoader(logger, config):
     # 新的資料包裝方式
     vocab = Vocab(config.vocab_path, config.vocab_size)
     # 由於 train_test_split 的random state故每次切割的內容皆相同
+    config.xls_path = os.path.abspath(config.xls_path).replace('Summarize_parallel/','/')
     total_df = pd.read_excel(config.xls_path)
     total_df['review_ID'] = total_df.review_ID.astype(str)
     # ---------------------------------------------------
@@ -188,90 +189,18 @@ def getDataLoader(logger, config):
     total_df = total_df[abs(total_df['summary_polarity'])>=0.1]
     total_df = total_df[total_df['summary_subjectivity']>=0.1]
     # ---------------------------------------------------
-    # exp 1
-    # total_df = total_df[total_df['review_len']<=500]
-    # total_df = total_df[total_df['summary_len']<=20]
-    # total_df = total_df[abs(total_df['summary_polarity'])>0.1]
-    # total_df = total_df[total_df['summary_subjectivity']>0.25]
-    # reveiw_len <= 500 and summary_len<= 20 and 
-    # summary_polarity > 0.1 and 
-    # summary_subjectivity > 0.25 :  494635 / 54728
-    # first rouge-1 0.36
+    # exp 
+    total_df = total_df[total_df['review_len']>=50]
+    total_df = total_df[total_df['percent_lcs']>=25]
+    total_df = total_df[total_df['overlap_pos']!=0]
     # ---------------------------------------------------
-    # # exp 2
-    # total_df = total_df[total_df['review_len']<=500]
-    # total_df = total_df[total_df['summary_len']<=20]
-    # total_df = total_df[abs(total_df['summary_polarity'])>0.1]
-    # total_df = total_df[total_df['summary_subjectivity']>0.1]
-    # # first rouge-1 0.36
-    # # train : 510788, test : 56755
-    # ---------------------------------------------------
-    # exp 3
-    # f = lambda x: len(eval(x))
-    # total_df['len_Pos_keys'] = total_df['POS_keys'].apply(f)
-    # total_df['len_DEP_keys'] = total_df['DEP_keys'].apply(f)
-    # total_df['len_TextRank_keys'] = total_df['TextRank_keys'].apply(f)
-    # total_df = total_df[total_df['review_len']<=500]
-    # total_df = total_df[total_df['summary_len']<=20]
-    # total_df = total_df[abs(total_df['summary_polarity'])>0.1]
-    # total_df = total_df[total_df['summary_subjectivity']>0.1]
-
-    # total_df = total_df[total_df['len_TextRank_keys']>0]
-    # first rouge-1 0.36
-    # train : 510788, test : 56755
-    # ---------------------------------------------------
-    # # exp 4 (remove single alphabet)
-    # # alphbet_stopword = ['b','c','d','e','f','g','h','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','#']
-    # f = lambda x: len(eval(x))
-    # total_df['len_Pos_keys'] = total_df['POS_keys'].apply(f)
-    # total_df['len_DEP_keys'] = total_df['DEP_keys'].apply(f)
-    # total_df['len_TextRank_keys'] = total_df['TextRank_keys'].apply(f)
-    # total_df = total_df[total_df['review_len']<=500]
-    # total_df = total_df[total_df['summary_len']<=20]
-    # total_df = total_df[abs(total_df['summary_polarity'])>0.1]
-    # total_df = total_df[total_df['summary_subjectivity']>0.1]
-
-    # total_df = total_df[total_df['len_TextRank_keys']>0]
-    # # first rouge-1 0.3587
-    # # train : 510788, test : 56755
-    # ---------------------------------------------------
-    # # exp 5 (clean_wordlist)
-    # # alphbet_stopword = ['b','c','d','e','f','g','h','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','#']
-    # f = lambda x: len(eval(x))
-    # total_df['len_Pos_keys'] = total_df['POS_keys'].apply(f)
-    # total_df['len_DEP_keys'] = total_df['DEP_keys'].apply(f)
-    # total_df['len_TextRank_keys'] = total_df['TextRank_keys'].apply(f)
-    # total_df = total_df[total_df['review_len']<=500]
-    # total_df = total_df[total_df['summary_len']<=20]
-    # total_df = total_df[abs(total_df['summary_polarity'])>0.1]
-    # total_df = total_df[total_df['summary_subjectivity']>0.1]
-
-    # total_df = total_df[total_df['len_TextRank_keys']>0]
-    # # first rouge-1 0.3595
-    # # train : 510788, test : 56755
-    # ---------------------------------------------------
-    # exp 6 (prob 0.1)
-    # alphbet_stopword = ['b','c','d','e','f','g','h','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','#']
-    # f = lambda x: len(eval(x))
-    # total_df['len_Pos_keys'] = total_df['POS_keys'].apply(f)
-    # total_df['len_DEP_keys'] = total_df['DEP_keys'].apply(f)
-    # total_df['len_TextRank_keys'] = total_df['TextRank_keys'].apply(f)
-    # total_df = total_df[total_df['review_len']<=500]
-    # total_df = total_df[total_df['summary_len']<=20]
-    # total_df = total_df[abs(total_df['summary_polarity'])>0.1]
-    # total_df = total_df[total_df['summary_subjectivity']>0.1]
-
-    # total_df = total_df[total_df['len_TextRank_keys']>0]
-    # first rouge-1 : 0.3621
-    # train : 510788, test : 56755
-    # ---------------------------------------------------
-    total_df = total_df.sort_values(by=['review_len','overlap'], ascending = False)
+    # total_df = total_df.sort_values(by=['review_len','overlap'], ascending = False)
     train_df, val_df = train_test_split(total_df, test_size=0.1, 
                                         random_state=0, shuffle=True)
                                         
     logger.info('train : %s, test : %s'%(len(train_df), len(val_df)))
-    train_df = train_df.sort_values(by=['review_len'])
-    val_df = val_df.sort_values(by=['review_len'])
+    # train_df = train_df.sort_values(by=['review_len'])
+    # val_df = val_df.sort_values(by=['review_len'])
     train_data = ReadDataset(train_df, config, vocab)
     validate_data = ReadDataset(val_df, config, vocab)
 

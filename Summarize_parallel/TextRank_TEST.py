@@ -48,7 +48,7 @@ parser.add_argument('--max_dec_steps', type=int, default=50)
 parser.add_argument('--min_dec_steps', type=int, default=8)
 parser.add_argument('--max_epochs', type=int, default=10)
 parser.add_argument('--vocab_size', type=int, default=50000)
-parser.add_argument('--beam_size', type=int, default=13)
+parser.add_argument('--beam_size', type=int, default=16)
 parser.add_argument('--batch_size', type=int, default=8)
 
 parser.add_argument('--hidden_dim', type=int, default=512)
@@ -108,7 +108,7 @@ def decode_write_all(writer, logger, epoch, config, model, dataloader, mode):
         try:
             # rouge_1, rouge_2, rouge_l, self_Bleu_1, self_Bleu_2, self_Bleu_3, self_Bleu_4,                 Bleu_1, Bleu_2, Bleu_3, Bleu_4, Meteor, batch_frame = total_evaulate(article_sents, keywords_list, decoded_sents, ref_sents)
             multi_scores, batch_frame = total_evaulate(article_sents, keywords_list, decoded_sents, ref_sents)
-            review_IDS = [review_ID for review_ID in inputs.review_IDS]
+            review_IDS = [review_ID for review_ID in batch.review_IDS]
             batch_frame['review_ID'] = review_IDS        
         except Exception as e :
             continue

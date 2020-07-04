@@ -27,7 +27,7 @@ xls_path = Data_path +"/pro_review.xlsx"
 # xls_path = Data_path +"/pro_review_orig.xlsx"
 
 
-keywords = "DEP_keys"
+keywords = "Noun_adj_keys"
 
 
 
@@ -38,7 +38,7 @@ vocab_path = Data_path + 'Embedding/%s/word.vocab'%(word_emb_type)
 save_model_path = "model/saved_models"
 emb_grad = False
 max_key_num = 8
-eps = 1e-12 # 学习率衰减的最小值，当学习率变化小于 eps 时，则不调整学习率
+eps = 1e-10 # 学习率衰减的最小值，当学习率变化小于 eps 时，则不调整学习率
 coverage = True
 emb_dim = 300
 

@@ -401,9 +401,14 @@ def total_output(epoch, mode, writerPath, outFrame, avg_time, # avg_rouge_1, avg
     # --------------------------------------     
     outFrame = outFrame.sort_values(by=['article_lens'], ascending = False)
     # outFrame = outFrame[outFrame['article_lens']>=50]
-    writeFrame = outFrame[:1000]
-    writeFrame.to_excel(writerPath + '/%s_%s_output.xls'% (mode, epoch))
-    
+    # writeFrame = outFrame[:1000]
+    writer = pd.ExcelWriter(writerPath + '/%s_%s_output.xls'% (mode, epoch), engine='xlsxwriter')
+    writer.book.use_zip64()
+    # writeFrame.to_excel(writerPath + '/%s_%s_output.xls'% (mode, epoch))
+    outFrame.to_excel(writer, index = False)
+    # Close the Pandas Excel writer and output the Excel file.
+    writer.save()
+    writer.close()
     read_info = open(writerPath + '/%s_%s_res.txt'% (mode, epoch), 'r', encoding='utf-8').readlines()
     print(mode,'\n',read_info)
     return scalar_acc['rouge_l_f'], outFrame

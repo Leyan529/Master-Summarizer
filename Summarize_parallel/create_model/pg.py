@@ -334,7 +334,7 @@ class Model(nn.Module):
             # step_loss.to('cuda:0')   
             # step_losses.append(step_loss)
             pred_probs.append(log_probs)            
-            x_t = T.multinomial(final_dist,1).squeeze()  # Sample words from final distribution which can be used as input in next time step
+            x_t = T.multinomial(final_dist,1, replacement=True).squeeze()  # Sample words from final distribution which can be used as input in next time step
 
             is_oov = (x_t >= config.vocab_size).long()  # Mask indicating whether sampled word is OOV
             x_t = (1 - is_oov) * x_t.detach() + (is_oov) * UNKNOWN_TOKEN  # Replace OOVs with [UNK] token

@@ -36,7 +36,7 @@ parser.add_argument('--copy', type=bool, default=True, help = 'True/False') # fo
 
 parser.add_argument('--model_type', type=str, default='seq2seq', choices=['seq2seq', 'transformer'])
 parser.add_argument('--train_rl', type=bool, default=False, help = 'True/False')
-parser.add_argument('--keywords', type=str, default='DEP_keys', 
+parser.add_argument('--keywords', type=str, default='Noun_adj_keys', 
                     help = 'POS_keys / DEP_keys / Noun_adj_keys / TextRank_keys')
 
 parser.add_argument('--lr', type=float, default=0.0001)
@@ -47,10 +47,10 @@ parser.add_argument('--gound_truth_prob', type=float, default=0.5)
 
 parser.add_argument('--max_enc_steps', type=int, default=500)
 parser.add_argument('--max_dec_steps', type=int, default=20)
-parser.add_argument('--min_dec_steps', type=int, default=5)
+parser.add_argument('--min_dec_steps', type=int, default=6)
 parser.add_argument('--max_epochs', type=int, default=15)
 parser.add_argument('--vocab_size', type=int, default=50000)
-parser.add_argument('--beam_size', type=int, default=13)
+parser.add_argument('--beam_size', type=int, default=16)
 parser.add_argument('--batch_size', type=int, default=32)
 
 parser.add_argument('--hidden_dim', type=int, default=512)
