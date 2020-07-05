@@ -38,7 +38,7 @@ seg_eng = Segmenter(corpus="twitter") # english or twitter
 from ekphrasis.classes.spellcorrect import SpellCorrector
 sp = SpellCorrector(corpus="english") # english or twitter
 
-alphbet_stopword = ['','b','c','d','e','f','g','h','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','#']
+alphbet_stopword = ['\"','\'','','b','c','d','e','f','g','h','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','#']
 
 # 斷詞辭典
 from nltk.corpus import stopwords as nltk_stopwords
@@ -110,22 +110,20 @@ text_processor = TextPreProcessor(
 # ---------------------pipeline----------------------------
 # step1 縮寫還原, 過濾html字元
 import re
-def lower_remove_simple_html(text):
+def lower_remove_simple_html(text):    
     text = str(text)
     text = text.lower()
-    text = text.strip()
-
+    text = text.strip()    
     for k, v in contraction_mapping.items():
         if k in text:
             text = text.replace(k, v)
     for k, v in special_contractions_mapping.items():
         if k in text:
             text = text.replace(k, v)
-
     for k in html_escape_table:
         if k in text:
             text = text.replace(k, "")   
-
+    
     text = remove_tags(text)
     return text
 # step1.5 移除符號特徵 + 小數點數值
@@ -166,6 +164,7 @@ def remove_symbol(text):
         text = re.sub('í', 'i', text)
         text = re.sub('ó', 'o', text)
         text = re.sub('ú', 'u', text)
+        text = re.sub('[%s]' % re.escape(r"!#$%&'()*+,-/:;<=>?@[\]^_`{|}~"), '', text)
         return text
 
     text = clean_text_round1(text)
@@ -190,15 +189,6 @@ def clean_wordlist(wordlist):
         for word in wordlist
     ]
     return wordlist
-
-# def nltk_bert_token_sents(text):
-#     text = [
-#                 " ".join([token for token in bert_tokenizer.tokenize(sent)])
-#                 for sent in nltk.sent_tokenize(text)
-#            ]
-#     text = " ".join(text).replace(" ##","")
-#     # text = " ".join(clean_wordlist(text.split(" ")))
-#     return text
 
 def ekphrasis_process(paragraphs):
     # ekphrasis 語料修正 + 語料切詞
@@ -287,7 +277,7 @@ def nltk_noun_pharse_lemm(text):
         sentence = lemmatize_sentence(sent)
         sentence = re.sub('[%s]' % re.escape(string.punctuation), '', sentence)
         sentence = re.sub(r"\b[bcdefghjklmnopqrstuvwxyz#]\b", "", sentence)
-        sentence = re.sub(' +',' ',sentence) # Removing extra spaces
+        sentence = re.sub(' +',' ',sentence) # Removing extra spaces        
 
         # print(sentence)
         if len(sentence.split(" ")) > 1:
@@ -308,11 +298,12 @@ def squeeze(s):
     return s
 
 def review_clean(text):
-    # text = "I have an apple abc123 123 0.45 0.45 . 0.45 a tiger has a women called women.7 ."
+    # text = """ 'Sony MZ-NF610 High Speed Net MD Walkman Recorder' """
     # print("---------------orign review-------------")
     # print(text)
-    text = lower_remove_simple_html(text)
-    text = remove_symbol(text)
+    feats = ['']
+    text = lower_remove_simple_html(text)    
+    text = remove_symbol(text)    
     # text = nltk_bert_token_sents(text)  
     text = ekphrasis_process(text)
     text, feats = nltk_noun_pharse_lemm(text)

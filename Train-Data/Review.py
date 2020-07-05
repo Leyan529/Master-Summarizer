@@ -76,10 +76,10 @@ elif mode == 'mixCat':
     # mongoObj = Mix12()
     # mongoObj = Mixbig_5()
     '''compare'''
-    # mongoObj = Mix6()
+    mongoObj = Mix6()
     # mongoObj = Mixbig_Elect_30()
     # mongoObj = Mixbig_Books_3()
-    mongoObj = Pure_kitchen()
+    # mongoObj = Pure_kitchen()
     # mongoObj = Pure_Cloth()
     
     main_cat = mongoObj.getAttr()
@@ -162,6 +162,9 @@ def make_review(df):
     corpus_path = '%s/corpus.txt'%(folder) 
     corpus = open(corpus_path,'w',encoding='utf-8')
 
+    check_path = '%s/check.txt'%(folder) 
+    check = open(check_path,'w',encoding='utf-8')
+
     feature_counter = Counter()
     docCount = len(df)            
     asin_list, review_list, overall_list, vote_list, summary_list, review_ID_list , cheat_num_list = [] , [] , [] , [] , [] , [] , []
@@ -182,8 +185,9 @@ def make_review(df):
                 feature_counter.update(rev_keywords)
                 lemm_review_len = len(lemm_review.split(" "))
                 [corpus.write(sent + "\n") for sent in sents]
+                
             except Exception as e :
-                print(e)  
+                continue  
             # ---------------------------------------------------------------------------------------------
             try:            
                 lemm_summary = summary_clean(summary) 
@@ -191,10 +195,16 @@ def make_review(df):
                 lemm_summary_len = len(temp_summary.split(" "))
                 if lemm_summary_len >= 5:
                     corpus.write(temp_summary)  
-                   
+                
             except Exception as e :
-                continue           
-
+                continue  
+            if type(review)!= str: continue
+            if type(lemm_review)!= str: continue
+            check.write('--------------orign review-------------'+ "\n")
+            check.write(review + "\n")
+            check.write('\n--------------review-------------'+ "\n")
+            check.write(lemm_review + "\n")         
+            check.write("\n---------------------------------------------------------------------------------------\n")
             pbar.set_description("%s training-pair " % (folder))
             
             asin_list.append(asin)
@@ -216,7 +226,7 @@ def make_review(df):
                             "lemm_review_len": lemm_review_len_list , "lemm_summary_len": lemm_summary_len_list
                             })
         corpus.close()
-
+        check.close()
 
 
         important_features = OrderedDict(sorted(feature_counter.items(), key=lambda pair: pair[1], reverse=True))
@@ -340,7 +350,7 @@ df = df[(df.lemm_review_len <= 1000) ] # 過濾single word summary
 df = df[(df.lemm_review_len >= 25) ] # 過濾single word summary
 df = df[(df.lemm_summary_len <= 20) ] # 過濾single word summary
 
-# df = df[(df.lemm_review_len <= 500) ] # 過濾single word summary
+df = df[(df.lemm_review_len <= 500) ] # 過濾single word summary
 
 df = df.reset_index(drop=True)
 # ----------------------------------------------------
@@ -579,15 +589,15 @@ with open('%s/cond_statistic/data_info.txt'%(folder),'w') as f:
 amount = len(df)
 print('Total data : %s'%(amount))  
     
-def clean_wordlist(wordlist):
-    wordlist = [
-        ''.join(re.findall(r'[A-Za-z]', word)) \
-        if (word.isalnum() and not (word.isdigit()))
-        else word
-        for word in wordlist
-    ]
-    wordlist = [token for token in wordlist if (token != '' )] 
-    return wordlist
+# def clean_wordlist(wordlist):
+#     wordlist = [
+#         ''.join(re.findall(r'[A-Za-z]', word)) \
+#         if (word.isalnum() and not (word.isdigit()))
+#         else word
+#         for word in wordlist
+#     ]
+#     wordlist = [token for token in wordlist if (token != '' )] 
+#     return wordlist
     
 # Ready Embedding Corpus
 from collections import Counter, OrderedDict
@@ -597,13 +607,15 @@ def make_corpus():
     embedding_corpus = []
     with open(corpus_path,'r',encoding='utf-8') as f:
         lines = f.readlines()
+        print('lines :%s'%(len(lines)))
         for line in lines:
             line = squeeze(line)
             tokens = line.replace("\n",'').replace("<s>",'').replace("</s>",'').split(" ")
             # tokens = [token for token in tokens if (token != '' and token.isalpha() and token not in alphbet_stopword)]
             tokens = clean_wordlist(tokens)
             # tokens = [token for token in tokens if (token != '' )] # => 最佳
-            if len(tokens) < 5 : continue
+            # print(tokens)
+            if len(tokens) < 3 : continue            
             corpus.append(tokens)
             embedding_corpus.append(tokens)
     print('make corpus finished...')
