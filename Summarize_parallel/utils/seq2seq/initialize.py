@@ -211,6 +211,12 @@ def loadCheckpoint(logger, load_model_path, model, optimizer):
     loss = checkpoint['loss']
     r_loss = checkpoint['r_loss']
     optimizer.load_state_dict(checkpoint['optimizer'])
+    
+    # 重载optimizer的参数时将所有的tensor都放到cuda上
+    for state in optimizer.state.values():
+        for k, v in state.items():
+            if torch.is_tensor(v):
+                state[k] = v.cuda()
     logger.info("Loaded model at " + load_model_path)
     logger.info("Loaded model step = %s, loss = %.2f, r_loss = %.2f " %(step, loss, r_loss))
     return model, optimizer, step

@@ -1,0 +1,16 @@
+productTitle: Moto G7 Play with Alexa Push-to-Talk – Unlocked – 32 GB – Deep Indigo (US Warranty) – Verizon, AT&T, T–Mobile, Sprint, Boost, Cricket, & Metro
+acrCustomerReviewText: 3,098 ratings
+feature-bullets: This fits your .
+ Make sure this fits
+by entering your model number.
+P.when("ReplacementPartsBulletLoader").execute(function(module){ module.initializeDPX(); })
+Pre-installed selection of Amazon apps, including Amazon Alexa, Amazon Music, Audible and Amazon Shopping
+Amazon exclusive version with Alexa built-in: double press the power button to just ask, and Alexa will respond. Alexa can play music, provide news updates, check the weather wherever you are and more
+5.7" HD+ Max Vision display (1512 x 720) with 19:9 aspect ratio, 2 GB of RAM and 32 GB of internal storage with option to add up to 512 GB of microSD expandable memory, Android 9.0, and US warranty
+Qualcomm Snapdragon 632 processor with 1.8 GHz octa-core CPU and Adreno 506 GPU
+13MP rear-facing camera with LED flash, 8 MP front-facing camera with LED selfie flash for low light selfies
+3,000 mAh non-removable battery with USB Type-C 10W rapid charger
+Instantly unlock your phone using fingerprint sensor and facial recognition
+Reliable design: Water repellant design with P2i nano coating, enjoy a comfortable grip with a scratch-resistant, Corning Gorilla Glass 3 design
+Unlocked for the freedom to choose your carrier. Compatible with AT&T, Sprint, T-Mobile, and Verizon networks. SIM card not included. Customers may need to contact Sprint for activation on Sprint’s network
+Show more

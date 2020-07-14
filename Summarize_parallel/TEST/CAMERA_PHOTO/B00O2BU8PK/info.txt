@@ -1,0 +1,11 @@
+productTitle: KODAK SCANZA Digital Film & Slide Scanner - Converts 35mm, 126, 110, Super 8 & 8mm Film Negatives & Slides to JPEG - Includes Large Tilt-Up 3.5" LCD, Easy-Load Film Inserts, Adapters & More
+acrCustomerReviewText: 2,257 ratings
+feature-bullets: This fits your .
+ Make sure this fits
+by entering your model number.
+P.when("ReplacementPartsBulletLoader").execute(function(module){ module.initializeDPX(); })
+FILM TO JPEG IN SECONDS – Powerful 14/22MP KODAK Film Scanner Converts Old 35mm, 126, 110, Super 8 & 8mm Negatives & Slides to JPEG Digital Files - NOTE; THE SCANZA WILL NOT CONVERT FILMS OTHER THEN 35mm, 126, 110, Super 8 & 8mm Negatives
+LARGE, BRIGHT 3.5” TFT LCD – High Definition Built-In Color Display Features Adjustable Brightness & Convenient Tilt for Easy Operation & Image Viewing
+AN ADAPTER FOR EVERYTHING – Unit Arrives w/Multiple Film Inserts & Adapters for Fast, Flexible Operation; Big One-Touch Buttons Allow for One-Step Scan & Save
+INTUITIVE USER INTERFACE – Includes Helpful Tray & Insert Directory; Easily Edit Image RGB & Resolution, Browse Gallery [SD Card NOT Included, supports up to 128GB] & More
+CABLES & EXTRAS INCLUDED – Mac & PC Compatible Converter Comes w/USB Power Cable, HDMI Cable, AC Adapter, Video Cable & FREE Film Cleaning Brush. Use the included brush to also clean the light box of dust and speckles, to avoid marks on the scanned images.

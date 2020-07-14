@@ -42,12 +42,12 @@ parser.add_argument('--keywords', type=str, default='Noun_adj_keys',
 parser.add_argument('--lr', type=float, default=0.0001)
 parser.add_argument('--rand_unif_init_mag', type=float, default=0.02)
 parser.add_argument('--trunc_norm_init_std', type=float, default=0.001)
-parser.add_argument('--mle_weight', type=float, default=1.0)
-parser.add_argument('--gound_truth_prob', type=float, default=0.5)
+parser.add_argument('--mle_weight', type=float, default=0.2)
+parser.add_argument('--gound_truth_prob', type=float, default=0.1)
 
 parser.add_argument('--max_enc_steps', type=int, default=500)
 parser.add_argument('--max_dec_steps', type=int, default=20)
-parser.add_argument('--min_dec_steps', type=int, default=6)
+parser.add_argument('--min_dec_steps', type=int, default=5)
 parser.add_argument('--max_epochs', type=int, default=15)
 parser.add_argument('--vocab_size', type=int, default=50000)
 parser.add_argument('--beam_size', type=int, default=16)
@@ -94,7 +94,7 @@ from parallel import DataParallelModel, DataParallelCriterion
 # https://gist.github.com/thomwolf/7e2407fbd5945f07821adae3d9fd1312
 
 
-load_step = None
+load_step = 0
 model = Model(pre_train_emb=config.pre_train_emb, 
               word_emb_type = config.word_emb_type, 
               vocab = vocab)
@@ -107,8 +107,9 @@ load_model_path = config.save_model_path + '/%s/%s.tar' % (loggerName, config.lo
 if os.path.exists(load_model_path):
     model, optimizer, load_step = loadCheckpoint(logger, load_model_path, model, optimizer)
     # 若偵測到model切換成eval
-    eval_model = True
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(eval_gpu)
+    # eval_model = True
+    # os.environ["CUDA_VISIBLE_DEVICES"] = str(eval_gpu)
+    model.to('cuda:%s' % 0) #BCW
     
 else:    
     model.to('cuda:%s' % 0) #BCW
@@ -262,16 +263,13 @@ from utils.seq2seq.write_result import total_evaulate, total_output
 def decode(writer, dataloader, epoch):
     # 動態取batch
     num = len(dataloader)
-    avg_rouge_1, avg_rouge_2, avg_rouge_l  = [], [], []
-    avg_self_bleu1, avg_self_bleu2, avg_self_bleu3, avg_self_bleu4 = [], [], [], []
-    avg_bleu1, avg_bleu2, avg_bleu3, avg_bleu4 = [], [], [], []
-    avg_meteor = []
     outFrame = None
     avg_time = 0
-        
-    for idx, inputs in enumerate(dataloader):
+    total_scores = dict()   
+    idx = 0 
+    for _, inputs in enumerate(dataloader):
         start = time.time() 
-#         'Encoder data'
+        # 'Encoder data'
         enc_batch, enc_padding_mask, enc_lens, enc_batch_extend_vocab, extra_zeros, coverage,             ct_e, enc_key_batch, enc_key_mask, enc_key_lens = get_input_from_batch(inputs, config, batch_first = True)
         max_enc_len = max(T.max(enc_lens,dim=0)).tolist()[0] 
         
@@ -282,7 +280,7 @@ def decode(writer, dataloader, epoch):
 
         enc_out, enc_hidden = parallel_model.module.encoder(enc_batch, enc_lens, max_enc_len)
         
-#         'Feed encoder data to predict'
+        # 'Feed encoder data to predict'
         pred_ids = beam_search(enc_hidden, enc_out, enc_padding_mask, ct_e, extra_zeros, 
                                 enc_batch_extend_vocab, enc_key_batch, enc_key_mask, parallel_model.module, 
                                 START, END, UNKNOWN_TOKEN)
@@ -291,53 +289,47 @@ def decode(writer, dataloader, epoch):
         cost = (time.time() - start)
         avg_time += cost        
 
-        
-        rouge_1, rouge_2, rouge_l,             Bleu_1, Bleu_2, Bleu_3, Bleu_4, Meteor, batch_frame = total_evaulate(article_sents, keywords_list, decoded_sents, ref_sents)
-        
-        if idx %1000 ==0 and idx >0 : print(idx); 
-        if idx == 0: outFrame = batch_frame
-        else: outFrame = pd.concat([outFrame, batch_frame], axis=0, ignore_index=True) 
-        # ----------------------------------------------------
-        avg_rouge_1.extend(rouge_1)
-        avg_rouge_2.extend(rouge_2)
-        avg_rouge_l.extend(rouge_l)   
-        
-        #avg_self_bleu1.extend(self_Bleu_1)
-        #avg_self_bleu2.extend(self_Bleu_2)
-        #avg_self_bleu3.extend(self_Bleu_3)
-        #avg_self_bleu4.extend(self_Bleu_4)
-        
-        avg_bleu1.extend(Bleu_1)
-        avg_bleu2.extend(Bleu_2)
-        avg_bleu3.extend(Bleu_3)
-        avg_bleu4.extend(Bleu_4)
-        avg_meteor.extend(Meteor)
+        multi_scores, batch_frame = total_evaulate(article_sents, keywords_list, decoded_sents, ref_sents)
+        review_IDS = [review_ID for review_ID in inputs.review_IDS]
+        batch_frame['review_ID'] = review_IDS        
+        if idx %1000 ==0 and idx >0 : 
+            print(idx); 
+        if idx == 0: 
+            outFrame = batch_frame; 
+            total_scores = multi_scores
+        else: 
+            outFrame = pd.concat([outFrame, batch_frame], axis=0, ignore_index=True) 
+            for key, scores in total_scores.items():
+                scores.extend(multi_scores[key])
+                total_scores[key] = scores
+        idx += 1
         # ----------------------------------------------------    
     avg_time = avg_time / (num * config.batch_size)    
-    
-    scalar_acc = {
-        'rouge_1':sum(avg_rouge_1) / len(avg_rouge_1),
-        'rouge_2':sum(avg_rouge_2) / len(avg_rouge_2),
-        'rouge_l':sum(avg_rouge_l) / len(avg_rouge_l),
-        
-        'bleu1':sum(avg_bleu1) / len(avg_bleu1),
-        'bleu2':sum(avg_bleu2) / len(avg_bleu2),
-        'bleu3':sum(avg_bleu3) / len(avg_bleu3),
-        'bleu4':sum(avg_bleu4) / len(avg_bleu4),
-        
-        'meteor':sum(avg_meteor) / len(avg_meteor)
-    }
-    
+
+    scalar_acc = {}
+    num = 0
+    for key, scores in total_scores.items():
+        num = len(scores)
+        scalar_acc[key] = sum(scores)/len(scores)
+
     for scalar_name, accuracy in scalar_acc.items():
-        if 'rouge' in scalar_name:
-            writer.add_scalars('scalar/rouge',  
+        if 'rouge_1' in scalar_name:
+            writer.add_scalars('scalar/rouge_1',  
+               {scalar_name: accuracy,
+               }, epoch)
+        elif 'rouge_2' in scalar_name:
+            writer.add_scalars('scalar/rouge_2',  
+               {scalar_name: accuracy,
+               }, epoch)
+        elif 'rouge_l' in scalar_name:
+            writer.add_scalars('scalar/rouge_l',  
                {scalar_name: accuracy,
                }, epoch)
         elif 'bleu' in scalar_name:
             writer.add_scalars('scalar/bleu',  
                {scalar_name: accuracy,
                }, epoch)
-        else:
+        elif 'meteor' in scalar_name:
             writer.add_scalars('scalar/meteor',  
                {scalar_name: accuracy,
                }, epoch)
@@ -391,6 +383,7 @@ def decode(writer, dataloader, epoch):
     return outFrame
 
 
+
 # In[ ]:
 
 
@@ -409,11 +402,13 @@ if not eval_model:
     running_avg_loss, running_avg_rl_loss = 0, 0
     sum_total_reward = 0
     step = 0
+    step = load_step + step
+    start_ep = int(load_step / save_steps)
     
     # initialize the early_stopping object
     early_stopping = EarlyStopping(config, logger, vocab, loggerName, patience=3, verbose=True)
     try:
-        for epoch in range(1, config.max_epochs+1):
+        for epoch in range((start_ep+1), config.max_epochs+1):
             for batch in train_loader:
                 step += 1; 
                 loss_st = time.time()

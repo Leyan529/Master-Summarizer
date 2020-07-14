@@ -1,0 +1,12 @@
+productTitle: AKASO EK7000 Pro 4K Action Camera with Touch Screen EIS Adjustable View Angle Web Camera 40m Waterproof Camera Remote Control Sports Camera with Helmet Accessories Kit
+acrCustomerReviewText: 3,302 ratings
+feature-bullets: About this item
+This fits your .
+ Make sure this fits
+by entering your model number.
+P.when("ReplacementPartsBulletLoader").execute(function(module){ module.initializeDPX(); })
+UPGRADE SERIES OF AKASO EK7000: AKASO EK7000 Pro action camera delivers 4K/25fps, 2.7K/30fps, 1080P/60fps videos and 16 MP photos that capture every moment in crisp detail and unparalleled clarity.
+INTUITIVE UI DESIGN: Ultra 2 inch IPS touch screen shows everything crystal clearly and brightly, easy to change settings, switch shooting modes, preview and playback footage.
+ELECTRONIC IMAGE STABILIZATION: Built-in Electronic Image Stabilization (EIS) delivers steady and smooth videos. AKASO EK7000 Pro sports camera ensures excellent experience in shooting fast-moving objects.
+WATERPROOF CAMERA UP TO 131FT: Equipped with the upgraded waterproof case, this underwater camera can deep dive up to 131 feet, ready to capture all details of your adventures. Ideal for water sports such as swimming, surfing, diving, snorkeling, etc.
+ADJUSTABLE VIEW ANGLE: You can set the view angle of this action camera depending on your needs between super wide, wide, medium and narrow. It's easier to hit someone with low angle. With high angle you can see more.

@@ -1,0 +1,11 @@
+productTitle: Xiaomi Redmi Note 8 (64GB, 4GB) 6.3" Display, Snapdragon 665, 48MP Quad Camera, Dual SIM GSM Factory Unlocked - US & Global 4G LTE International Version (Neptune Blue, 64GB + 64GB SD + Case Bundle)
+acrCustomerReviewText: 3,042 ratings
+feature-bullets: This fits your .
+ Make sure this fits
+by entering your model number.
+P.when("ReplacementPartsBulletLoader").execute(function(module){ module.initializeDPX(); })
+6.3” IPS LCD capacitive touchscreen, FHD+ 1080×2340 pixels, 19.5:9 ratio, Dual SIM (Nano-SIM, dual stand-by), Android 9.0 (Pie); MIUI 10
+4GB RAM + 64GB ROM, Qualcomm SDM665 Snapdragon 665 (11nm), Octa-core
+Front Camera: 13MP, Rear Camera: 48MP+8MP+2MP+2MP, Adreno 610, Fingerprint (rear-mounted), 4000 mAh Battery
+2G bands: GSM 850 / 900 / 1800 / 1900, 3G bands: HSDPA 850 / 900 / 1700(AWS) / 1900 / 2100, 4 4G bands: LTE band 1(2100), 2(1900), 3(1800), 4(1700/2100), 5(850), 7(2600), 8(900), 20(800), 28(700), 38(2600), 40(2300)
+International Model - No Warranty in US. Compatible with Most GSM Carriers like T-Mobile, AT&T, MetroPCS, etc. Will NOT work with CDMA Carriers Such as Verizon, Sprint, Boost. - FCC ID: 2AFZZC3JG

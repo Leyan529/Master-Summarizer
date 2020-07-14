@@ -41,7 +41,7 @@ parser.add_argument('--lr', type=float, default=0.0001)
 parser.add_argument('--rand_unif_init_mag', type=float, default=0.02)
 parser.add_argument('--trunc_norm_init_std', type=float, default=0.001)
 parser.add_argument('--mle_weight', type=float, default=1.0)
-parser.add_argument('--gound_truth_prob', type=float, default=0.5)
+parser.add_argument('--gound_truth_prob', type=float, default=0.1)
 
 parser.add_argument('--max_enc_steps', type=int, default=1000)
 parser.add_argument('--max_dec_steps', type=int, default=50)

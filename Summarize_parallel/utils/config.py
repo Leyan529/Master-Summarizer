@@ -16,9 +16,9 @@ vocab_size = 60000
 # xls_path = Data_path +"/pro_review_overlap.xlsx"
 
 # data_type = 'Pure_Cloth'
-data_type = 'Mix6_mainCat_Ekphrasis'
-# data_type = 'Mix6_mainCat_best'
-# data_type = 'Mix6_mainCat_pipeline'
+# data_type = 'Mix6_mainCat_Ekphrasis'
+data_type = 'Mix6_mainCat_best'
+# data_type = 'Mix6_mainCat_Ekphrasis_new'
 
 
 Data_path = '../Train-Data/%s/'%(data_type)
@@ -38,7 +38,7 @@ vocab_path = Data_path + 'Embedding/%s/word.vocab'%(word_emb_type)
 save_model_path = "model/saved_models"
 emb_grad = False
 max_key_num = 8
-eps = 1e-10 # 学习率衰减的最小值，当学习率变化小于 eps 时，则不调整学习率
+eps = 1e-14 # 学习率衰减的最小值，当学习率变化小于 eps 时，则不调整学习率
 coverage = True
 emb_dim = 300
 

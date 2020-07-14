@@ -1,0 +1,11 @@
+productTitle: IPOW 2 Pack Knee Pain Relief & Patella Stabilizer Knee Strap Brace Support for Hiking, Soccer, Basketball, Running, Jumpers Knee, Tennis, Tendonitis, Volleyball & Squats
+acrCustomerReviewText: 4,566 ratings
+feature-bullets: This fits your .
+ Make sure this fits
+by entering your model number.
+P.when("ReplacementPartsBulletLoader").execute(function(module){ module.initializeDPX(); })
+Shock-absorbing & Knee Pain Relief - Segmented fix design can make adjustment according personal knees’ curves to supply better protection of patella, and do make a difference for your knee.
+Full Adjustable & One Size Fits All - Double Knot Design, fully adjustable strap offered flexibility to make adjustment for tightness, fits for sizing of 10-18 inches in circumference.
+Comfortable & Stay in Place - Adapted high quality raw materials and standardized production techniques, soft and breathable fabric with smooth edges and fine stitches make you wear without any discomfort, stay in place after a long period of exercise.
+Applicable Scene - Suitable for a variety of sports scenes, such as basketball, running, fitness, training, especially for intense sports that require frequent jumping and landing, which can improve sports performance.
+Hassle Free After Sale Service - Our knee straps are tested in real-life situations by user’s demanding. If you got any issue, feel free to contact us via e-mail, our efficient customer service will absolutely offer you a satisfied solution.

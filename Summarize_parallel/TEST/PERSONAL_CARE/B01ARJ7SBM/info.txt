@@ -1,0 +1,11 @@
+productTitle: ComfiLife Orthopedic Knee Pillow for Sciatica Relief, Back Pain, Leg Pain, Pregnancy, Hip and Joint Pain - Memory Foam Wedge Contour
+acrCustomerReviewText: 9,259 ratings
+feature-bullets: This fits your .
+ Make sure this fits
+by entering your model number.
+P.when("ReplacementPartsBulletLoader").execute(function(module){ module.initializeDPX(); })
+SCIATICA, BACK & HIP PAIN RELIEF AT NIGHT: Ergonomically designed knee pillow fits comfortably between your knees and provides maximum support and comfort at night that helps relieve sciatica pain and pressure on the lower back. ComfiLife knee pillow is designed to help relieve back pain at night however it may not work for all conditions or completely eliminate all symptoms or pain. It may take a few days for your body to get adjusted to using a knee pillow at night and see results
+PREMIUM HIGH-DENSITY MEMORY FOAM: Made with 100% premium quality durable cut memory foam to provide long lasting comfort for hours, superior to other pillows it won't go flat over time
+ERGONOMIC DESIGN: Ergonomic contoured design keeps your legs, hip and spine in ideal alignment while sleeping and improves circulation. Product Dimensions: 9.8 x 7.9 x 6.3 inches
+BREATHABLE EASY CLEAN COVER: Breathable zippered cover ensures the pillow does not get warm and is machine washable for easy cleaning
+LIFETIME WARRANTY: ComfiLife is trusted by millions of happy customers around the world. Your complete satisfaction is our top priority. If you’re not 100% satisfied, we offer a Lifetime Money Back or Replacement Guarantee with no questions asked.

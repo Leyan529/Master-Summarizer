@@ -43,11 +43,11 @@ parser.add_argument('--lr', type=float, default=0.0001)
 parser.add_argument('--rand_unif_init_mag', type=float, default=0.02)
 parser.add_argument('--trunc_norm_init_std', type=float, default=0.001)
 parser.add_argument('--mle_weight', type=float, default=1.0)
-parser.add_argument('--gound_truth_prob', type=float, default=0.5)
+parser.add_argument('--gound_truth_prob', type=float, default=0.1)
 
 parser.add_argument('--max_enc_steps', type=int, default=500)
 parser.add_argument('--max_dec_steps', type=int, default=20)
-parser.add_argument('--min_dec_steps', type=int, default=6)
+parser.add_argument('--min_dec_steps', type=int, default=5)
 parser.add_argument('--max_epochs', type=int, default=15)
 parser.add_argument('--vocab_size', type=int, default=50000)
 parser.add_argument('--beam_size', type=int, default=16)
@@ -97,7 +97,7 @@ from parallel import DataParallelModel, DataParallelCriterion
 # https://gist.github.com/thomwolf/7e2407fbd5945f07821adae3d9fd1312
 
 
-load_step = None
+load_step = 0
 model = Model(pre_train_emb=config.pre_train_emb, 
               word_emb_type = config.word_emb_type, 
               vocab = vocab)
@@ -110,8 +110,9 @@ load_model_path = config.save_model_path + '/%s/%s.tar' % (loggerName, config.lo
 if os.path.exists(load_model_path):
     model, optimizer, load_step = loadCheckpoint(logger, load_model_path, model, optimizer)
     # 若偵測到model切換成eval
-    eval_model = True
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(eval_gpu)
+    # eval_model = True
+    # os.environ["CUDA_VISIBLE_DEVICES"] = str(eval_gpu)
+    model.to('cuda:%s' % 0) #BCW
     
 else:    
     model.to('cuda:%s' % 0) #BCW
@@ -404,11 +405,13 @@ if not eval_model:
     running_avg_loss, running_avg_rl_loss = 0, 0
     sum_total_reward = 0
     step = 0
+    step = load_step + step
+    start_ep = int(load_step / save_steps)
     
     # initialize the early_stopping object
     early_stopping = EarlyStopping(config, logger, vocab, loggerName, patience=3, verbose=True)
     try:
-        for epoch in range(1, config.max_epochs+1):
+        for epoch in range((start_ep+1), config.max_epochs+1):
             for batch in train_loader:
                 step += 1; 
                 loss_st = time.time()

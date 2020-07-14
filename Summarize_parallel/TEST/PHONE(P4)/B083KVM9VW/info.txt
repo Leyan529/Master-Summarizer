@@ -1,0 +1,12 @@
+productTitle: Samsung Galaxy Buds+ Plus, True Wireless Earbuds w/improved battery and call quality (Wireless Charging Case included), Black – US Version, SM-R175NZKAXAR
+acrCustomerReviewText: 2,242 ratings
+feature-bullets: About this item
+This fits your .
+ Make sure this fits
+by entering your model number.
+P.when("ReplacementPartsBulletLoader").execute(function(module){ module.initializeDPX(); })
+Exactly what you want to hear. Galaxy Buds+ are the perfect fitting earbuds to isolate you from distracting noises, so you can stay focused on what you want. And if you’d like to filter in some of the outside world to be more in-tune with your surroundings, you can switch on Ambient Aware2. Hear flight announcements, oncoming traffic or your order number while still enjoying your favorite playlist or podcast.
+22 hours of serious sound. Get up to 11 hours of nonstop music on a single charge, then pop your Galaxy Buds+ in the wireless charging case and get nearly 11 more. Forgot to charge them the night before? No worries. ?3 minutes of charging gives you one hour of play time, so you have enough juice for your commute or workout.
+Your voice, loud and clear. Ensure you’re heard clearly. A dedicated internal and two external microphones pick up your voice and isolate it from outside noises. When you’re on a call, your voice comes through richly and confidently, even in noisy locations.
+Android & iOS compatible. Pair with smart devices via Bluetooth. Use the Galaxy Wearable app on Android and Galaxy Buds+ app on iOS to make the most of your earphones.
+Included Components: 3 Size Eargel

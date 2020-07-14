@@ -274,7 +274,7 @@ class Decoder(nn.Module):
         # print(sum_temporal_srcs.shape)
         # print(prev_s.shape)
         # print('--------------------------------------------------------------------------')
-        enc_attn = attn_dist 
+        enc_attn = attn_dist         
         return final_dist, s_t, ct_e, sum_temporal_srcs, prev_s, enc_attn, dec_attn
 
 
@@ -329,13 +329,15 @@ class Model(nn.Module):
                                                                                       enc_batch_extend_vocab,
                                                                                       sum_temporal_srcs, prev_s, enc_key_batch, enc_key_mask)
             target = target_batch[:, t]
+            # print(final_dist.shape)
             log_probs = T.log(final_dist + config.eps)
+            # print(final_dist.shape)
             # step_loss = F.nll_loss(log_probs, target, reduction="none", ignore_index=PAD)
             # step_loss.to('cuda:0')   
             # step_losses.append(step_loss)
             pred_probs.append(log_probs)            
             x_t = T.multinomial(final_dist,1, replacement=True).squeeze()  # Sample words from final distribution which can be used as input in next time step
-
+            # print('multinomial %s'%(str(x_t)))
             is_oov = (x_t >= config.vocab_size).long()  # Mask indicating whether sampled word is OOV
             x_t = (1 - is_oov) * x_t.detach() + (is_oov) * UNKNOWN_TOKEN  # Replace OOVs with [UNK] token
 

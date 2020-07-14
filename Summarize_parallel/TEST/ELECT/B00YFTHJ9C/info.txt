@@ -1,0 +1,12 @@
+productTitle: AmazonBasics 8-Sheet Capacity, Cross-Cut Paper and Credit Card Shredder, 4.1 Gallon
+acrCustomerReviewText: 39,561 ratings
+feature-bullets: This fits your .
+ Make sure this fits
+by entering your model number.
+P.when("ReplacementPartsBulletLoader").execute(function(module){ module.initializeDPX(); })
+Cross-cut shred size: turns paper into small confetti-like pieces measuring 3/16 by 1-27/32 inches (5 by 47 mm); meets security level P-3 standards
+Sheet capacity: shreds up to 8 sheets of 20-pound bond paper at a time (no need to remove staples or small paper clips); also destroys credit cards (one at a time)
+Run time and thermal protection: 3 minutes on / 30 minutes off; if shredder runs continuously beyond the max run time, it will automatically shut off to protect the motor from overheating
+User-friendly design: 3-mode control switch (auto, off, reverse); overheat LED indicator; 8.7-inch paper-entry width; easy-to-empty 4.1-gallon bin with see-through window
+Support and warranty: please refer to user manual, troubleshooting guide, and instructional video before use; the user guide on this detail page covers issues related to the shredder turning on; backed by an AmazonBasics 1-year limited warranty
+Quality tested: as part of AmazonBasics quality inspections, we test every shredder before shipping it, which means you may see some paper shreds from the testing

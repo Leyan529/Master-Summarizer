@@ -1,0 +1,12 @@
+productTitle: DYMO Label Maker | LabelManager 160 Portable Label Maker, Easy-to-Use, One-Touch Smart Keys, QWERTY Keyboard, Large Display, for Home & Office Organization
+acrCustomerReviewText: 10,941 ratings
+feature-bullets: About this item
+This fits your .
+ Make sure this fits
+by entering your model number.
+P.when("ReplacementPartsBulletLoader").execute(function(module){ module.initializeDPX(); })
+PORTABLE LABEL MAKER: Compact and lightweight for portability, making it easy to label just about anything, anywhere
+TYPE QUICKLY AND EASILY: Label maker lets you quickly type text on the familiar computer style QWERTY keyboard, edit with one touch fast formatting keys and print perfect, professional labels every time
+PRINTS CUSTOM LABELS: Customize your label with 20 plus ways to format text and 200 plus symbols and clip art
+EXTENDED BATTERY LIFE: Enjoy extended battery life with automatic switch off
+USE WITH AUTHENTIC DYMO LABELS: For best performance, use authentic DYMO Label Tapes in 1/4 Inches, 3/8 Inches and 1/2 Inches (6 millimeter, 9 millimeter, 12 millimeter) widths available in a variety of colors

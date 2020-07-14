@@ -1,0 +1,16 @@
+productTitle: Epson Perfection V600 Color Photo, Image, Film, Negative & Document Scanner
+acrCustomerReviewText: 3,219 ratings
+feature-bullets: This fits your .
+ Make sure this fits
+by entering your model number.
+P.when("ReplacementPartsBulletLoader").execute(function(module){ module.initializeDPX(); })
+Create extraordinary enlargements from film: 6400 x 9600 dpi for enlargements up to 17 Inches x 22 Inches. Maximum Scan Area 8.5 x 11.7 inches. TPU 2.7 x 9.5 inches
+Remove the appearance of dust and scratches from film: Digital ICE for Film
+Remove the appearance of tears and creases from photos: Digital ICE for prints
+Restore faded color photos with one touch: Epson easy photo fix included
+Scan slides, negatives and medium format panoramic film: Built in transparency unit
+Achieve greater productivity: Energy efficient Ready Scan LED light source means no warm up time, faster scans and lower power consumption
+Convert scanned documents into editable text: ABBYY FineReader Sprint Plus OCR
+Take your photos further: ArcSoft PhotoStudio included, to help edit and enhance your digital images
+Quickly complete any task: Instantly scan, copy, scan to email and create PDFs with four customizable buttons
+Show more

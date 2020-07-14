@@ -22,12 +22,12 @@ def re_config(opt):
     for k,v in vars(opt).items():
         setattr(config, k, v)
 
-    config.rl_weight = 1 - opt.mle_weight
+    # config.rl_weight = 1 - opt.mle_weight
     
     config.word_emb_path = config.Data_path + "Embedding/%s/%s.%sd.txt"%(config.word_emb_type,config.word_emb_type,config.emb_dim)
     config.vocab_path = config.Data_path + 'Embedding/%s/word.vocab'%(config.word_emb_type)   
     
-    setattr(config, 'rl_weight',opt.mle_weight)
+    setattr(config, 'rl_weight', 1-opt.mle_weight)
     setattr(config, 'word_emb_path', config.Data_path + "Embedding/%s/%s.%sd.txt"%(opt.word_emb_type,opt.word_emb_type,opt.emb_dim))
     setattr(config, 'vocab_path',config.Data_path + 'Embedding/%s/word.vocab'%(opt.word_emb_type))
     return config
