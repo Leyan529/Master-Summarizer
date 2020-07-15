@@ -1,19 +1,13 @@
 # ! pip install nltk==3.5
 import nltk
 import re
-# from transformers import BertTokenizer 
-# bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
 import spacy
 import en_core_web_sm
 from spacy.matcher import Matcher
 nlp = en_core_web_sm.load()
 
-# from textblob import TextBlob
-# from textblob import Word
-from textblob import Blobber
-from textblob.sentiments import NaiveBayesAnalyzer
-TextBlob = Blobber(analyzer=NaiveBayesAnalyzer())
+
 import string
 
 # from nltk.corpus import stopwords
@@ -38,7 +32,7 @@ seg_eng = Segmenter(corpus="twitter") # english or twitter
 from ekphrasis.classes.spellcorrect import SpellCorrector
 sp = SpellCorrector(corpus="english") # english or twitter
 
-alphbet_stopword = ['\"','\'','','b','c','d','e','f','g','h','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','#']
+alphbet_stopword = ['','b','c','d','e','f','g','h','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z','#']
 
 # 斷詞辭典
 from nltk.corpus import stopwords as nltk_stopwords
@@ -77,12 +71,11 @@ def remove_tags(text):
 text_processor = TextPreProcessor(
     # terms that will be normalized
     normalize=['url', 'email', 'percent', 'money', 'phone', 'user',
-        'time', 'url', 'date','hashtag','number'],
+        'time', 'date','hashtag'],
     # terms that will be annotated
     # annotate={"hashtag", "allcaps", "elongated", "repeated",
     #     'emphasis', 'censored'},
-    annotate={"hashtag", "allcaps", "repeated",
-        'emphasis', 'censored'},
+    annotate={"hashtag", "allcaps", "repeated",'emphasis', 'censored'},
     fix_html=True,  # fix HTML tokens
     
     # corpus from which the word statistics are going to be used 
@@ -110,10 +103,11 @@ text_processor = TextPreProcessor(
 # ---------------------pipeline----------------------------
 # step1 縮寫還原, 過濾html字元
 import re
-def lower_remove_simple_html(text):    
+def lower_contraction(text):    
     text = str(text)
     text = text.lower()
-    text = text.strip()    
+    text = text.strip()
+    text = re.sub(' +',' ',text) # Removing extra spaces    
     for k, v in contraction_mapping.items():
         if k in text:
             text = text.replace(k, v)
@@ -165,7 +159,18 @@ def remove_symbol(text):
         text = re.sub('ó', 'o', text)
         text = re.sub('ú', 'u', text)
         text = re.sub('[%s]' % re.escape(r"!#$%&'()*+,-/:;<=>?@[\]^_`{|}~"), '', text)
+        # text = re.sub(r" ?\([^\D]+\)", "", text)
         return text
+
+    pattern = re.compile(r"([\d\w\.-]+[-'//.][\d\w\.-]+)")  # |  ([\(](\w)+[\)])
+    keys = pattern.findall(text)            
+        
+    for k in keys:    
+        k = k.replace("(","").replace(")","")
+        text = text.replace(k,"(" + k + ")")
+        text = text.replace("((","(").replace("))",")")     
+        text = text.replace("(" + k + ")","") # 移除符號特徵
+        text = text.strip()
 
     text = clean_text_round1(text)
     text = clean_text_round2(text)
@@ -180,20 +185,12 @@ def squeeze_sym(s):
     s = s.replace('.', ' ')
     return s
 
-# 排除英數字字元(可不做)
-def clean_wordlist(wordlist):
-    wordlist = [
-        ''.join(re.findall(r'[A-Za-z]', word)) \
-        if (word.isalnum() and not (word.isdigit()))
-        else word
-        for word in wordlist
-    ]
-    return wordlist
 
-def ekphrasis_process(paragraphs):
+
+def ekphrasis_process(text):
     # ekphrasis 語料修正 + 語料切詞
     # abs correct + segment
-    pre_process_tokens = text_processor.pre_process_doc(paragraphs)
+    pre_process_tokens = text_processor.pre_process_doc(text)
     # Word Segmentation
     segment_tokens = []
     for word in pre_process_tokens:
@@ -201,10 +198,10 @@ def ekphrasis_process(paragraphs):
     segment_tokens = [token for token in segment_tokens if token not in alphbet_stopword]
         
     # Spell Correction(for dictionary corpus)   
-    correct_tokens = [token if token in stopwords else sp.correct(token) for token in segment_tokens ]
+    correct_tokens = [token if ((token in stopwords)or(token.isalnum())) else sp.correct(token) for token in segment_tokens ]
 
-    # text = remove_tags(" ".join(segment_tokens))
-    text = remove_tags(" ".join(correct_tokens))
+    text = remove_tags(" ".join(segment_tokens))
+    # text = remove_tags(" ".join(correct_tokens))
     # remove_chars = '["#$%&\'\"\()*+:<=>?@★【】《》“”‘’[\\]^_`{|}~]+'
     # text = re.sub(remove_chars, "", text)  # remove number and segment
     text = squeeze(text)
@@ -280,7 +277,7 @@ def nltk_noun_pharse_lemm(text):
         sentence = re.sub(' +',' ',sentence) # Removing extra spaces        
 
         # print(sentence)
-        if len(sentence.split(" ")) > 1:
+        if len(sentence.split(" ")) > 2:
             sentence = sentence + " ."
             new_sents.append(sentence)
             text_keywords = extract_PF(sentence).run()
@@ -298,26 +295,22 @@ def squeeze(s):
     return s
 
 def review_clean(text):
-    # text = """ 'Sony MZ-NF610 High Speed Net MD Walkman Recorder' """
+    # text = """ quality okay, but annoying white noise """
     # print("---------------orign review-------------")
     # print(text)
     feats = ['']
-    text = lower_remove_simple_html(text)    
+    text = lower_contraction(text)  
     text = remove_symbol(text)    
-    # text = nltk_bert_token_sents(text)  
+    # text = nltk_bert_token_sents(text) 
     text = ekphrasis_process(text)
     text, feats = nltk_noun_pharse_lemm(text)
-    # text = ['this' if t == 'thi' else t for t in text]
-    # text = [t for t in text if t not in alphbet_stopword]
     text = " ".join(text)
     '''remove continuous same words'''
     while re.search(r'\b(.+)(\s+\1\b)+', text):
         text = re.sub(r'\b(.+)(\s+\1\b)+', r'\1', text)
+    text = re.sub('\d \d+',' ',text) # Removing extra numbers
+    text = re.sub(' +',' ',text) # Removing extra spaces    
     text = squeeze(text)
-    # text = text.replace(" thi "," this ")
-    # text = text.replace(" wa "," was ")
-    # text = text.replace(" ha "," has ")
-    # text = text.replace(" tha "," that ")
     # print("--------------- review-------------")
     # print(nltk.sent_tokenize(text))
     # print('*')
@@ -327,26 +320,24 @@ def review_clean(text):
     return text, feats, nltk.sent_tokenize(text)
 
 def summary_clean(text):
+    # text = "quality okay, but annoying white noise"
     # print("---------------orign summary-------------")
     # print(text)
-    text = lower_remove_simple_html(text)    
+    text = lower_contraction(text)    
     text = squeeze_sym(text)
-    text = remove_symbol(text) 
+    text = remove_symbol(text)     
     # text = nltk_bert_token_sents(text)  
     text = ekphrasis_process(text)
     text, _ = nltk_noun_pharse_lemm(text) 
-    # text = ['this' if t == 'thi' else t for t in text]
-    # text = [t for t in text if t not in alphbet_stopword]
+    text = re.sub('\w*\d\w*', '', text) # W*:A-Z  d:digit   # 刪除摘要數字 
     text = "<s> " + " ".join(text) + " </s>"
     text = text.replace("." , "")
     '''remove continuous same words'''
     while re.search(r'\b(.+)(\s+\1\b)+', text):
         text = re.sub(r'\b(.+)(\s+\1\b)+', r'\1', text)
+    text = re.sub('\d \d+',' ',text) # Removing extra numbers
+    text = re.sub(' +',' ',text) # Removing extra spaces       
     text = squeeze(text)
-    # text = text.replace(" thi "," this ")
-    # text = text.replace(" thi "," ")
-    # text = text.replace(" ha "," has ")
-    # text = text.replace(" tha "," that ")
     # print("---------------summary-------------")
     # print(text)
     # print('*')
@@ -355,48 +346,3 @@ def summary_clean(text):
     # print('*')
     return text
 
-# ----------------------------------------------------------------------------------------
-def TextBlob_feat(text):
-    noun_phrases = TextBlob(text).noun_phrases
-    f = []
-    for phrase in noun_phrases:
-        blob_phrase = TextBlob(phrase)
-        for word, pos in blob_phrase.tags:
-            if pos.startswith('N'):
-                f.append(word)
-    return list(set(f))
-
-def TextBlob_noun_pharse_lemm(text):
-    sentence = []
-    # text = str(TextBlob(text).correct())
-    for blob_sent in TextBlob(text).sentences:
-        word_list = []
-        for word, pos in blob_sent.correct().tags:
-            if pos.startswith('N'):
-                word_list.append(word.lemmatize("n"))
-            elif pos.startswith('V'):
-                word_list.append(word.lemmatize("v"))
-            elif pos.startswith('R'):
-                word_list.append(word.lemmatize("r"))
-            else:
-                word_list.append(word)
-        sent = " ".join(word_list) + ' . '
-        sentence.append(sent)
-    text = "".join(sentence)
-    feats = []
-    feats = TextBlob_feat(text)
-    return text, feats, sentence
-# Too slow
-def TextBlob_review_clean(text):
-    text = lower_remove_simple_html(text)
-    text, feats, sentence = TextBlob_noun_pharse_lemm(text)
-    text = squeeze(text)
-    return text, feats, sentence
-
-def TextBlob_summary_clean(text):
-    text = lower_remove_simple_html(text)    
-    text, feats, sentence = TextBlob_noun_pharse_lemm(text)
-    text = text.replace(" . "," ")
-    text =  "<s> " + text + " </s>"
-    text = squeeze(text)
-    return text    

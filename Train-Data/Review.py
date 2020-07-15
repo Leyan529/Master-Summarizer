@@ -203,7 +203,11 @@ def make_review(df):
             check.write('--------------orign review-------------'+ "\n")
             check.write(review + "\n")
             check.write('\n--------------review-------------'+ "\n")
-            check.write(lemm_review + "\n")         
+            check.write(lemm_review + "\n")      
+            check.write('--------------orign summary-------------'+ "\n")
+            check.write(summary + "\n")
+            check.write('\n--------------summary-------------'+ "\n")
+            check.write(temp_summary + "\n")      
             check.write("\n---------------------------------------------------------------------------------------\n")
             pbar.set_description("%s training-pair " % (folder))
             
@@ -350,7 +354,7 @@ df = df[(df.lemm_review_len <= 1000) ] # 過濾single word summary
 df = df[(df.lemm_review_len >= 25) ] # 過濾single word summary
 df = df[(df.lemm_summary_len <= 20) ] # 過濾single word summary
 
-df = df[(df.lemm_review_len <= 500) ] # 過濾single word summary
+# df = df[(df.lemm_review_len <= 500) ] # 過濾single word summary
 
 df = df.reset_index(drop=True)
 # ----------------------------------------------------
@@ -421,8 +425,8 @@ if not os.path.exists(csv_path):
             data_dict = series.to_dict()
             pbar.update(1)
             pbar.set_description("%s pro review" % (folder))
-            review_ID , review , summary , orign_review, orign_summary = \
-            data_dict['review_ID'], data_dict['review'], data_dict['summary'], data_dict['orign_review'], data_dict['orign_summary']
+            asin, review_ID , review , summary , orign_review, orign_summary = \
+            data_dict['asin'], data_dict['review_ID'], data_dict['review'], data_dict['summary'], data_dict['orign_review'], data_dict['orign_summary']
             # ------------------------------------------------------------- 
             rev_tokens, summ_tokens = review.split(" "), summary.split(" ")
             # if len(rev_tokens)>500: continue
@@ -485,6 +489,7 @@ if not os.path.exists(csv_path):
             binaryrating = 'positive' if rating >=4 else 'negative'
             summary_conflict = (binaryrating== 'positive' and summary_blob.sentiment.polarity<0) or (binaryrating== 'negative' and summary_blob.sentiment.polarity>0)
             save_dict = {
+                "asin": asin,
                 "review_ID": str(review_ID),
                 "rating": rating,
                 "vote": data_dict['vote'],
@@ -647,7 +652,7 @@ def train_word2Vec(vector_size):
     # sg=1表示採用skip-gram, 預設sg=0 表示採用cbow
     if not os.path.exists("%s/Embedding/word2Vec/word2Vec.%sd.txt"%(folder,vector_size)):    
         w2vec = word2vec.Word2Vec(embedding_corpus, size=vector_size, min_count=1,max_vocab_size=None,iter=100,
-                                sorted_vocab=1,max_final_vocab=vocab_count)    
+                                sorted_vocab=1,max_final_vocab=vocab_count,sg=1)    
 
         w2vec.wv.save_word2vec_format('%s/Embedding/word2Vec/word2Vec.%sd.txt'%(folder, vector_size), binary=False)
 
