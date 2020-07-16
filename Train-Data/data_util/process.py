@@ -137,6 +137,15 @@ def remove_symbol(text):
     def clean_text_round1(text):
         '''Make text lowercase, remove text in square brackets, remove punctuation and remove words containing numbers.'''
         text = text.lower()
+        pattern = re.compile(r"([\d\w\.-]+[-'//.][\d\w\.-]+)")  # |  ([\(](\w)+[\)])
+        keys = pattern.findall(text)            
+            
+        for k in keys:    
+            k = k.replace("(","").replace(")","")
+            text = text.replace(k,"(" + k + ")")
+            text = text.replace("((","(").replace("))",")")     
+            text = text.replace("(" + k + ")","") # 移除符號特徵
+            text = text.strip()
         text = re.sub('\[.*?\]', '', text)
         text = re.sub('\[*?\]', '', text)
         # text = re.sub('[%s]' % re.escape(string.punctuation), '', text)
@@ -160,17 +169,7 @@ def remove_symbol(text):
         text = re.sub('ú', 'u', text)
         text = re.sub('[%s]' % re.escape(r"!#$%&'()*+,-/:;<=>?@[\]^_`{|}~"), '', text)
         # text = re.sub(r" ?\([^\D]+\)", "", text)
-        return text
-
-    pattern = re.compile(r"([\d\w\.-]+[-'//.][\d\w\.-]+)")  # |  ([\(](\w)+[\)])
-    keys = pattern.findall(text)            
-        
-    for k in keys:    
-        k = k.replace("(","").replace(")","")
-        text = text.replace(k,"(" + k + ")")
-        text = text.replace("((","(").replace("))",")")     
-        text = text.replace("(" + k + ")","") # 移除符號特徵
-        text = text.strip()
+        return text    
 
     text = clean_text_round1(text)
     text = clean_text_round2(text)
@@ -329,13 +328,13 @@ def summary_clean(text):
     # text = nltk_bert_token_sents(text)  
     text = ekphrasis_process(text)
     text, _ = nltk_noun_pharse_lemm(text) 
-    text = re.sub('\w*\d\w*', '', text) # W*:A-Z  d:digit   # 刪除摘要數字 
     text = "<s> " + " ".join(text) + " </s>"
     text = text.replace("." , "")
     '''remove continuous same words'''
     while re.search(r'\b(.+)(\s+\1\b)+', text):
         text = re.sub(r'\b(.+)(\s+\1\b)+', r'\1', text)
     text = re.sub('\d \d+',' ',text) # Removing extra numbers
+    text = re.sub('\w*\d\w*', '', text) # W*:A-Z  d:digit   # 刪除摘要數字 
     text = re.sub(' +',' ',text) # Removing extra spaces       
     text = squeeze(text)
     # print("---------------summary-------------")
