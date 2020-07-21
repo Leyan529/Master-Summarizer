@@ -28,14 +28,14 @@ eval_gpu = 0
 # os.environ['CUDA_LAUNCH_BLOCKING'] = "1" 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--key_attention', type=bool, default=False, help = 'True/False')
-parser.add_argument('--intra_encoder', type=bool, default=False, help = 'True/False')
-parser.add_argument('--intra_decoder', type=bool, default=False, help = 'True/False')
+parser.add_argument('--key_attention', type=bool, default=True, help = 'True/False')
+parser.add_argument('--intra_encoder', type=bool, default=True, help = 'True/False')
+parser.add_argument('--intra_decoder', type=bool, default=True, help = 'True/False')
 parser.add_argument('--copy', type=bool, default=True, help = 'True/False') # for transformer
 
 
 parser.add_argument('--model_type', type=str, default='seq2seq', choices=['seq2seq', 'transformer'])
-parser.add_argument('--train_rl', type=bool, default=True, help = 'True/False')
+parser.add_argument('--train_rl', type=bool, default=False, help = 'True/False')
 parser.add_argument('--keywords', type=str, default='Noun_adj_keys', 
                     help = 'POS_keys / DEP_keys / Noun_adj_keys / TextRank_keys')
 
@@ -64,10 +64,7 @@ parser.add_argument('--pre_train_emb', type=bool, default=True, help = 'True/Fal
 
 opt = parser.parse_args(args=[])
 config = re_config(opt)
-loggerName, writerPath = getName(config)   
-loggerName = loggerName.replace('Pointer_generator','Pointer_less_RL')
-writerPath = writerPath.replace('Pointer-Generator','Pointer_less_RL')
-
+loggerName, writerPath = getName(config)    
 logger = getLogger(loggerName)
 writer = SummaryWriter(writerPath)
 
@@ -86,7 +83,7 @@ save_steps = int(train_batches/250)*250
 # In[3]:
 
 
-from create_model.pointer_less import Model
+from create_model.pg import Model
 import torch.nn as nn
 import torch as T
 import torch.nn.functional as F
@@ -103,8 +100,8 @@ model = Model(pre_train_emb=config.pre_train_emb,
               vocab = vocab)
 
 # model = model.cuda()
-optimizer = T.optim.Adam(model.parameters(), lr=config.lr)   
-# optimizer = T.optim.Adagrad(model.parameters(),lr=config.lr, initial_accumulator_value=0.1)
+optimizer = T.optim.Adam(model.parameters(), lr=config.lr, eps=config.eps)   
+# optimizer = T.optim.AdamW(model.parameters(), lr=config.lr, eps=config.eps)   
 
 load_model_path = config.save_model_path + '/%s/%s.tar' % (loggerName, config.load_ckpt)
 if os.path.exists(load_model_path):
@@ -398,8 +395,8 @@ from pytorchtools import EarlyStopping
 
 print_step = 250
 # save_steps = print_step
-if not eval_model:
 
+if not eval_model:
     write_train_para(writer, config)
     logger.info('------Training START--------')
     running_avg_loss, running_avg_rl_loss = 0, 0
@@ -407,7 +404,6 @@ if not eval_model:
     step = 0
     step = load_step + step
     start_ep = int(load_step / save_steps)
-    
     # initialize the early_stopping object
     early_stopping = EarlyStopping(config, logger, vocab, loggerName, patience=3, verbose=True)
     try:
@@ -424,11 +420,11 @@ if not eval_model:
 
                     if step%print_step == 0 :
                         writer.add_scalars('scalar/RL_Loss',  
-                           {'rl_loss': rl_loss
-                           }, step)
+                            {'rl_loss': rl_loss
+                            }, step)
                         writer.add_scalars('scalar/Reward',  
-                           {'batch_reward': batch_reward
-                           }, step)
+                            {'batch_reward': batch_reward
+                            }, step)
     #                     logger.info('epoch %d: %d, RL_Loss = %f, batch_reward = %f'
     #                                     % (epoch, step, rl_loss, batch_reward))
                     sum_total_reward += batch_reward
@@ -446,32 +442,32 @@ if not eval_model:
                     with T.autograd.no_grad():
                         train_batch_loss = mle_loss.item()
                         train_batch_rl_loss = rl_loss.item()
-#                         val_avg_loss = validate(validate_loader, config, model) # call batch by validate_loader
+    #                         val_avg_loss = validate(validate_loader, config, model) # call batch by validate_loader
                         running_avg_loss = calc_running_avg_loss(train_batch_loss, running_avg_loss)
                         running_avg_rl_loss = calc_running_avg_loss(train_batch_rl_loss, running_avg_rl_loss)
                         running_avg_reward = sum_total_reward / step
-#                         if step % save_steps == 0:
-#                             logger.info('epoch %d: %d, training batch loss = %f, running_avg_loss loss = %f, validation loss = %f'
-#                                         % (epoch, step, train_batch_loss, running_avg_loss, val_avg_loss))
+    #                         if step % save_steps == 0:
+    #                             logger.info('epoch %d: %d, training batch loss = %f, running_avg_loss loss = %f, validation loss = %f'
+    #                                         % (epoch, step, train_batch_loss, running_avg_loss, val_avg_loss))
                         writer.add_scalars('scalar/Loss',  
-                           {'train_batch_loss': train_batch_loss
-                           }, step)
+                            {'train_batch_loss': train_batch_loss
+                            }, step)
                         writer.add_scalars('scalar_avg/loss',  
-                           {'train_avg_loss': running_avg_loss
-#                             'test_avg_loss': val_avg_loss
-                           }, step)
+                            {'train_avg_loss': running_avg_loss
+    #                             'test_avg_loss': val_avg_loss
+                            }, step)
                         if running_avg_reward > 0:
     #                         logger.info('epoch %d: %d, running_avg_reward = %f'
     #                                 % (epoch, step, running_avg_reward))
                             writer.add_scalars('scalar_avg/Reward',  
-                               {'running_avg_reward': running_avg_reward
-                               }, step)
+                                {'running_avg_reward': running_avg_reward
+                                }, step)
                         if running_avg_rl_loss != 0:
     #                         logger.info('epoch %d: %d, running_avg_rl_loss = %f'
     #                                 % (epoch, step, running_avg_rl_loss))
                             writer.add_scalars('scalar_avg/RL_Loss',  
-                               {'running_avg_rl_loss': running_avg_rl_loss
-                               }, step)
+                                {'running_avg_rl_loss': running_avg_rl_loss
+                                }, step)
                                                     
                 
                 if step % save_steps == 0:
@@ -481,18 +477,18 @@ if not eval_model:
                     logger.info('epoch %d: %d, training batch loss = %f, running_avg_loss loss = %f, validation loss = %f'
                                         % (epoch, step, train_batch_loss, running_avg_loss, val_avg_loss))
                     writer.add_scalars('scalar_avg/loss',  
-                           {'train_avg_loss': running_avg_loss,
+                            {'train_avg_loss': running_avg_loss,
                             'test_avg_loss': val_avg_loss
-                           }, step)
+                            }, step)
                     '''（讀取所儲存模型引數後，再進行並行化操作，否則無法利用之前的程式碼進行讀取）'''
                     save_model(config, logger, parallel_model, optimizer, step, vocab, val_avg_loss,                                r_loss=0, title = loggerName)
                     loss_cost = time.time() - loss_st
                     logger.info('epoch %d|step %d| compute loss cost = %f ms'
                                     % (epoch, step, loss_cost))
                     writer.add_scalars('scalar_avg/epoch_loss',  
-                       {'train_avg_loss': running_avg_loss,
+                        {'train_avg_loss': running_avg_loss,
                         'test_avg_loss': val_avg_loss
-                       }, epoch)
+                        }, epoch)
                     last_save_step = step
                     test_outFrame = decode(writer, validate_loader, epoch)                   
 
@@ -544,12 +540,6 @@ if not eval_model:
 # In[ ]:
 
 
-test_outFrame.head()
-
-
-# In[ ]:
-
-
 test_outFrame.columns
 
 
@@ -566,10 +556,4 @@ test_outFrame[test_outFrame["rouge_1"]>=0.4][['rouge_1','article', 'reference', 
 # testing_avg_rouge_1: 0.3873426628114616 \n', 
 # 'testing_avg_rouge_2: 0.25943944916828854 \n', 
 # 'testing_avg_rouge_l: 0.3614074094052472 \n
-
-
-# In[ ]:
-
-
-# scalar_acc.items()
 

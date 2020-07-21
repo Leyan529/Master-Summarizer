@@ -176,11 +176,11 @@ def getDataLoader(logger, config):
     total_df['review_ID'] = total_df.review_ID.astype(str)
     # ---------------------------------------------------
     # exp (Ekphrasis)
-    # total_df = total_df[total_df['review_len']<=500]
-    # total_df = total_df[total_df['summary_len']<=20]
-    # total_df = total_df[abs(total_df['summary_polarity'])>=0.1]
-    # total_df = total_df[total_df['summary_subjectivity']>=0.1]
-    # total_df = total_df[total_df['summary_conflict']==False]
+    total_df = total_df[total_df['review_len']<=500]
+    total_df = total_df[total_df['summary_len']<=20]
+    total_df = total_df[abs(total_df['summary_polarity'])>=0.1]
+    total_df = total_df[total_df['summary_subjectivity']>=0.1]
+    total_df = total_df[total_df['summary_conflict']==False]
     
     # total_df = total_df[total_df['review_len']>=50]
     # total_df = total_df[total_df['percent_lcs']>=25]
@@ -188,8 +188,8 @@ def getDataLoader(logger, config):
     
     # ---------------------------------------------------
     # exp 
-    total_df = total_df[total_df['review_len']<=500]
-    total_df = total_df[total_df['summary_len']<=20]
+    # total_df = total_df[total_df['review_len']<=500]
+    # total_df = total_df[total_df['summary_len']<=20]
     # ---------------------------------------------------
     # total_df = total_df.sort_values(by=['review_len','overlap'], ascending = False)
     train_df, val_df = train_test_split(total_df, test_size=0.1, 

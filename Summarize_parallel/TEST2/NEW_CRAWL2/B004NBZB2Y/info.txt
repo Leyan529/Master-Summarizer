@@ -1,0 +1,12 @@
+productTitle: Texas Instruments TI-36X Pro Engineering/Scientific Calculator
+acrCustomerReviewText: 5,190 ratings
+feature-bullets: This fits your .
+ Make sure this fits
+by entering your model number.
+P.when("ReplacementPartsBulletLoader").execute(function(module){ module.initializeDPX(); })
+Ideal for curricula in which graphing technology may not be permitted.
+MultiView display shows multiple calculations at the same time on screen.
+MathPrint shows math expressions, symbols and stacked fractions as they appear in textbooks
+Ideal for high school through college: Algebra 1 & 2, Geometry, Trigonometry, Statistics, Calculus, Biology, etc.
+Convert fractions, decimals and terms including Pi into alternate representations.
+Select degrees/radians, floating/fix, number format modes.

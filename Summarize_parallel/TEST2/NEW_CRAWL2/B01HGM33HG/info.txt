@@ -1,0 +1,12 @@
+productTitle: AKASO EK7000 4K WiFi Sports Action Camera Ultra HD Waterproof DV Camcorder 12MP 170 Degree Wide Angle
+acrCustomerReviewText: 13,130 ratings
+feature-bullets: About this item
+This fits your .
+ Make sure this fits
+by entering your model number.
+P.when("ReplacementPartsBulletLoader").execute(function(module){ module.initializeDPX(); })
+4K Ultra HD action camera. Professional 4K 25Fps & 2.7K 30Fps video with 12MP photos at up to 30 frames per second for incredible photos, which is 4 times the resolution of traditional HD cameras.
+Wireless wrist remote control sports camera. With a wrist 2.4G remote, you can capture the world in an all-new way. Controlling the camera, framing shots or recording video is convenient.
+Longer battery life. AKASO EK7000 action camera comes with 2 rechargeable 1050mAh batteries. Each battery can record up to 90 minutes. No more worry about the recording time for this Action camera.
+Built-in Wi-Fi & HDMI, edit & share YOUR action in minutes. Just download App(smart DV) on your phone or tablet and connect with this action camera. Wi-Fi signal ranges up to 10 meters.
+100 Feet waterproof camera. AKASO EK7000 is designed to withstand extreme environments, together with durable waterproof case. With the accessories, transform it for indoor and outdoor activities.

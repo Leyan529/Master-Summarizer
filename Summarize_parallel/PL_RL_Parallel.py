@@ -35,14 +35,14 @@ parser.add_argument('--copy', type=bool, default=True, help = 'True/False') # fo
 
 
 parser.add_argument('--model_type', type=str, default='seq2seq', choices=['seq2seq', 'transformer'])
-parser.add_argument('--train_rl', type=bool, default=False, help = 'True/False')
+parser.add_argument('--train_rl', type=bool, default=True, help = 'True/False')
 parser.add_argument('--keywords', type=str, default='Noun_adj_keys', 
                     help = 'POS_keys / DEP_keys / Noun_adj_keys / TextRank_keys')
 
 parser.add_argument('--lr', type=float, default=0.0001)
 parser.add_argument('--rand_unif_init_mag', type=float, default=0.02)
 parser.add_argument('--trunc_norm_init_std', type=float, default=0.001)
-parser.add_argument('--mle_weight', type=float, default=1.0)
+parser.add_argument('--mle_weight', type=float, default=0.2)
 parser.add_argument('--gound_truth_prob', type=float, default=0.1)
 
 parser.add_argument('--max_enc_steps', type=int, default=500)
@@ -57,7 +57,7 @@ parser.add_argument('--hidden_dim', type=int, default=512)
 parser.add_argument('--emb_dim', type=int, default=300)
 parser.add_argument('--gradient_accum', type=int, default=1)
 
-parser.add_argument('--load_ckpt', type=str, default='', help='0002000')
+parser.add_argument('--load_ckpt', type=str, default='0087996', help='0002000')
 parser.add_argument('--word_emb_type', type=str, default='word2Vec', help='word2Vec/glove/FastText')
 parser.add_argument('--pre_train_emb', type=bool, default=True, help = 'True/False') # 若pre_train_emb為false, 則emb type為NoPretrain
 
@@ -65,8 +65,8 @@ parser.add_argument('--pre_train_emb', type=bool, default=True, help = 'True/Fal
 opt = parser.parse_args(args=[])
 config = re_config(opt)
 loggerName, writerPath = getName(config)   
-loggerName = loggerName.replace('Pointer_generator','Pointer_less')
-writerPath = writerPath.replace('Pointer-Generator','Pointer_less')
+loggerName = loggerName.replace('Pointer_generator','Pointer_less_RL')
+writerPath = writerPath.replace('Pointer-Generator','Pointer_less_RL')
 
 logger = getLogger(loggerName)
 writer = SummaryWriter(writerPath)
@@ -405,6 +405,8 @@ if not eval_model:
     running_avg_loss, running_avg_rl_loss = 0, 0
     sum_total_reward = 0
     step = 0
+    step = load_step + step
+    start_ep = int(load_step / save_steps)
     
     # initialize the early_stopping object
     early_stopping = EarlyStopping(config, logger, vocab, loggerName, patience=3, verbose=True)

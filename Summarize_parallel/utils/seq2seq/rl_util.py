@@ -18,11 +18,11 @@ def reward_function(decoded_sents, original_sents):
                 # print("Error occured at:")
                 # print("decoded_sents:", decoded_sents[i])
                 # print("original_sents:", original_sents[i])
-                score = [{"rouge-l":{"f":0.0}}]
+                score = [{"rouge-l":{"r":0.0}}]
             scores.append(score[0])
-    rouge_l_f1 = [score["rouge-l"]["f"] for score in scores]
-    rouge_l_f1 = get_cuda(T.FloatTensor(rouge_l_f1))
-    return rouge_l_f1
+    rewards = [score["rouge-l"]["r"] for score in scores]
+    rewards = get_cuda(T.FloatTensor(rewards))
+    return rewards
 
 
 def to_sents(enc_out, inds, vocab, art_oovs):
