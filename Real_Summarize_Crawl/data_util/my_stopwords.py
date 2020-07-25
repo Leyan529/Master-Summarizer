@@ -169,7 +169,7 @@ special_contractions_mapping = {
 	" U.S.A ": " usa ",
 	" multi- ": " multiple ",
 	" i.e. ":" that is ",
-	"'s":" is",
+	# "'s":" is",
 	" asap " : " as soon as possible " ,
 	" btw " : " by the way " ,
 	" fyi " : " for your information " ,

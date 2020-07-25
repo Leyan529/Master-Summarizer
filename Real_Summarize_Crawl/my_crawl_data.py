@@ -67,17 +67,30 @@ if __name__ == '__main__':
         '-m', '--maxreviews', help='Maximum number of reviews per item to download. Default:unlimited',
         required=False,
         type=int, default=-1)
-    # B071CV8CG2 (Sony 索尼 PlayStation 4 遊戲機)X
-    # B018L2WM86 (Vont 2 包 LED 露營燈具，超級明亮的便攜式生存燈具，必須在颶風、緊急情況、暴風、停電、原創可摺疊露營燈/燈具（包括 電池）)X
+ 
+    # B00CJICDSS (TOUGH-GRID 750磅傘繩/降落傘繩 - 美國軍方使用的正版 Mil Spec IV 750磅傘繩 (MIl-C-5040-H) - 100% 尼龍 - 美國製造) # page 426 1001
+    # B003VVP0KU (Prevue Hendryx 旅行鳥籠 1305 白色，50.8 公分 x 30.5 公分 x 38.1 公分) # page 48 186  
     # ---------------------------------------------------------------------------------------------------------------------------
-    # B07F981R8M (TCL Smart LED TV 4W 白色 LED燈), 32S327) # 591
-    # B07WSRXMS8 GoPro Hero 8 黑色 # 79
-    # B00CJICDSS (TOUGH-GRID 750磅傘繩/降落傘繩 - 美國軍方使用的正版 Mil Spec IV 750磅傘繩 (MIl-C-5040-H) - 100% 尼龍 - 美國製造) # 931
-    # B003VVP0KU (Prevue Hendryx 旅行鳥籠 1305 白色，50.8 公分 x 30.5 公分 x 38.1 公分) # 262
+    # 電器類 
+    # B004NBZB2Y (o) Texas Instruments - Ti-36X 太陽能科學計算機  # page 298 769
+    # ---------------------------------------------------------------------------------------------------------------------------
+    # 健康與個人照護類 
+    # B00DVPS4IQ Marijuana (THC) 單片式藥物測試組 # page 250 431
+    # ---------------------------------------------------------------------------------------------------------------------------
+    # 相機與照片類 
+    # B01HGM33HG AKASO EK7000 4K WiFi 運動攝影機 # page 67 247
+    # ---------------------------------------------------------------------------------------------------------------------------
+    # 手機及配件類     
+    # B07YN7CMXS (Xiaomi Redmi Note 8 Pro) 128GB, 6GB RAM 6.53" LTE GSM 64MP Factory Unlocked Smartphone  
+    # ---------------------------------------------------------------------------------------------------------------------------
+    # B07F981R8M (TCL Smart LED TV 4W 白色 LED燈), 32S327) # page 152 411    
+    # B076H3SRXG Wyze Cam 網路攝影機 1080p HD 室內 無線 智慧居家 夜視攝影機 # page 377 1002
+    # B07145GM4B PHILIPS 飛利浦 Norelco Multi Groomer MG7750/49 23 件組 多功能修容器 # page 309 748
+    # B07P6Y7954 Apple iPhone XR Fully Unlock(Renewed) 黑色 # page 72 168
 
-    # B002JAYMEE Neutrogena 露得清 Ultra Sheer Dry-Touch 防水 不油膩防曬乳 含有廣效 SPF 100+ 3液體盎司（約88.7毫升）# 569
     
-    parser.add_argument('--id', type=str, default= 'B002JAYMEE', choices=['B071CV8CG2','B019U00D7K'],
+    
+    parser.add_argument('--id', type=str, default= 'B01HGM33HG', choices=['B071CV8CG2','B019U00D7K'],
                         help='Product IDs for which to download reviews', required=False)
     parser.add_argument('-c', '--captcha', help='Retry on captcha pages until captcha is not asked. Default: skip', required=False,
                     action='store_true')
@@ -166,7 +179,7 @@ if __name__ == '__main__':
                 except:
                     pass
             
-        df = parse_page(htmlpage)
+        df = parse_page(id_, htmlpage)
         if page == 1:
             total_df = df
         else:
